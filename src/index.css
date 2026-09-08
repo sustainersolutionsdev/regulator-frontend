@@ -1,0 +1,140 @@
+/* ============================================================================
+   Sustainer — Regulator
+   Brand tokens v1.0 (locked May 12, 2026)
+   Tailwind CSS v4 — tokens defined via @theme directive
+   ============================================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --color-brand-teal:   #0D7377;
+  --color-brand-green:  #22C55E;
+  --color-brand-navy:   #0F172A;
+
+  --color-status-new:       #3B82F6;
+  --color-status-compliant: #22C55E;
+  --color-status-pending:   #F59E0B;
+  --color-status-action:    #EF4444;
+
+  --color-status-new-bg:       #EFF6FF;
+  --color-status-compliant-bg: #F0FDF4;
+  --color-status-pending-bg:   #FFFBEB;
+  --color-status-action-bg:    #FEF2F2;
+
+  --color-status-new-border:       #93C5FD;
+  --color-status-compliant-border: #86EFAC;
+  --color-status-pending-border:   #FCD34D;
+  --color-status-action-border:    #FCA5A5;
+
+  --color-status-new-text:       #1D4ED8;
+  --color-status-compliant-text: #16A34A;
+  --color-status-pending-text:   #D97706;
+  --color-status-action-text:    #DC2626;
+
+  --color-surface-page:    #F8FAFC;
+  --color-surface-card:    #FFFFFF;
+  --color-surface-muted:   #F1F5F9;
+
+  --color-surface-page-dark: #0F172A;
+  --color-surface-card-dark: #1E293B;
+  --color-surface-muted-dark: #334155;
+
+  --color-border-default:  #E2E8F0;
+  --color-border-strong:   #CBD5E1;
+  --color-border-dark:     #334155;
+
+  --color-text-primary:    #0F172A;
+  --color-text-secondary:  #475569;
+  --color-text-mid:        #94A3B8;
+  --color-text-tertiary:   #64748B;
+  --color-text-inverse:    #FFFFFF;
+
+  --font-sans: 'Inter', 'Helvetica Neue', 'Arial', sans-serif;
+  --font-mono: 'JetBrains Mono', 'Courier New', monospace;
+
+  --text-h1: 1.875rem;
+  --text-h1--line-height: 2.25rem;
+  --text-h1--font-weight: 700;
+
+  --text-h2: 1.5rem;
+  --text-h2--line-height: 2rem;
+  --text-h2--font-weight: 600;
+
+  --text-h3: 1.125rem;
+  --text-h3--line-height: 1.5rem;
+  --text-h3--font-weight: 600;
+
+  --text-body: 0.875rem;
+  --text-body--line-height: 1.25rem;
+  --text-body--font-weight: 400;
+
+  --text-label: 0.6875rem;
+  --text-label--line-height: 1rem;
+  --text-label--font-weight: 600;
+  --text-label--letter-spacing: 0.05em;
+
+  --text-cfr: 0.8125rem;
+  --text-cfr--line-height: 1.125rem;
+  --text-cfr--font-weight: 500;
+
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+
+  --sidebar-width: 14rem;
+  --sidebar-logo-zone: 4rem;
+  --topbar-height: 3rem;
+
+  --color-ring: #0D7377;
+}
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    color: var(--color-text-primary);
+    background-color: var(--color-surface-page);
+  }
+
+  .dark body {
+    color: var(--color-text-inverse);
+    background-color: var(--color-surface-page-dark);
+  }
+
+  .cfr {
+    font-family: var(--font-mono);
+    font-size: var(--text-cfr);
+    font-weight: 500;
+  }
+
+  .skip-link {
+    position: absolute;
+    left: -9999px;
+    top: 0;
+    z-index: 100;
+    padding: 0.75rem 1rem;
+    background: var(--color-brand-teal);
+    color: var(--color-text-inverse);
+    font-weight: 600;
+    text-decoration: none;
+    border-radius: 0 0 var(--radius-md) 0;
+  }
+  .skip-link:focus {
+    left: 0;
+  }
+
+  *:focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
+  }
+}
