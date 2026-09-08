@@ -1,19 +1,16 @@
-import { NavLink, Outlet } from 'react-router-dom';
+import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
-const NAV_ITEMS = [
+export const NAV_ITEMS = [
   { path: '/roadmap', label: 'Roadmap' },
   { path: '/dashboard', label: 'Dashboard' },
   { path: '/ai-insights', label: 'AI Insights' },
   { path: '/add-regulation', label: 'Add Regulation' },
   { path: '/directory', label: 'Users / Directory' },
-  { path: '/settings', label: 'Settings' },
+  { path: '/settings', label: 'Settings', title: 'Tenant & Business Unit Setup' },
 ];
 
 function roleChipLabel(role) {
-  // Per Requirements Doc (Aug 30 resolution): Admin/SME are functionally
-  // identical and cover all Business Units; only User is BU-scoped for
-  // editing. The chip reflects that distinction, not the raw role string.
   if (role === 'user') return 'User · edit own BU only';
   if (role === 'admin') return 'Admin';
   if (role === 'sme') return 'SME';
@@ -28,19 +25,16 @@ function Sidebar() {
       aria-label="Primary navigation"
       className="w-56 flex-shrink-0 flex flex-col bg-brand-navy border-r border-border-dark"
     >
-      {/* Brand zone — "Regulator" primary, "by Sustainer" secondary, per Section 4.1 */}
       <div className="h-16 flex flex-col justify-center px-4 border-b border-border-dark">
         <div className="text-base font-bold text-white leading-none tracking-tight">Regulator</div>
         <div className="text-[10px] text-slate-400 mt-1 uppercase tracking-widest">by Sustainer</div>
       </div>
 
-      {/* Tenant zone */}
       <div className="px-4 py-3 border-b border-border-dark">
         <div className="text-[10px] text-slate-500 uppercase tracking-widest font-semibold">Tenant</div>
         <div className="text-sm text-white truncate mt-0.5">{claims?.tenantId ?? 'Loading...'}</div>
       </div>
 
-      {/* Nav */}
       <nav className="flex-1 px-2 py-3 space-y-0.5 overflow-y-auto" aria-label="Main">
         {NAV_ITEMS.map(({ path, label }) => (
           <NavLink
@@ -61,7 +55,6 @@ function Sidebar() {
         ))}
       </nav>
 
-      {/* User zone */}
       <div className="px-4 py-3 border-t border-border-dark">
         <div className="text-xs text-slate-400 truncate">{claims?.role ? roleChipLabel(claims.role) : ''}</div>
         <button
@@ -76,8 +69,11 @@ function Sidebar() {
   );
 }
 
-function TopBar({ title }) {
+function TopBar() {
   const { claims } = useAuth();
+  const location = useLocation();
+  const current = NAV_ITEMS.find((item) => location.pathname.startsWith(item.path));
+  const title = current?.title ?? current?.label ?? '';
 
   return (
     <header
@@ -92,13 +88,13 @@ function TopBar({ title }) {
   );
 }
 
-export default function AppLayout({ title }) {
+export default function AppLayout() {
   return (
     <div className="flex h-screen overflow-hidden bg-surface-page dark:bg-surface-page-dark">
       <a href="#main-content" className="skip-link">Skip to main content</a>
       <Sidebar />
       <div className="flex flex-col flex-1 overflow-hidden">
-        <TopBar title={title} />
+        <TopBar />
         <main id="main-content" tabIndex={-1} className="flex-1 overflow-y-auto p-6 focus:outline-none">
           <Outlet />
         </main>

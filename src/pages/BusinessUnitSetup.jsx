@@ -95,7 +95,7 @@ export default function BusinessUnitSetup() {
         <h2 className="text-h3 text-brand-navy mb-3">Business Units</h2>
 
         {loading && <p className="text-body text-text-secondary">Loading...</p>}
-        {loadError && <p className="text-body text-status-action-text">{loadError}</p>}
+        {loadError && <p role="alert" className="text-body text-status-action-text">{loadError}</p>}
 
         {!loading && !loadError && (
           <table role="grid" className="w-full text-body mb-5">
@@ -160,7 +160,7 @@ export default function BusinessUnitSetup() {
           </p>
         )}
 
-        {submitError && <p className="text-body text-status-action-text mt-3">{submitError}</p>}
+        {submitError && <p role="alert" className="text-body text-status-action-text mt-3">{submitError}</p>}
       </section>
     </div>
   );

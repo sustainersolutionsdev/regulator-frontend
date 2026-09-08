@@ -47,10 +47,10 @@ export default function App() {
 
   return (
     <Routes>
-      <Route element={<AppLayout title="Tenant & Business Unit Setup" />}>
-        <Route path="/" element={<Navigate to="/settings" replace />} />
-        <Route path="/settings" element={<BusinessUnitSetup />} />
-      </Route>
+      <Route element={<AppLayout />}>
+  <Route path="/" element={<Navigate to="/settings" replace />} />
+  <Route path="/settings" element={<BusinessUnitSetup />} />
+</Route>
     </Routes>
   );
 }
