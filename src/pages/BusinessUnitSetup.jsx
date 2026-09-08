@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { fetchBusinessUnits, createBusinessUnit, BusinessUnitApiError } from '../api/businessUnitsApi';
+import ErrorBanner from '../components/ErrorBanner';
 
 // Static per Requirements Doc Section on roles (resolved Aug 26/30, 2026).
 // Not sourced from an API — this model is fixed, not tenant-configurable.
@@ -21,6 +22,7 @@ const ROLE_MODEL = [
     detail: 'Can view everything tenant-wide, but can only edit dashboard status, notes, and documents within their assigned Business Unit(s). Attempting to edit outside that scope returns a clear on-screen error, not a silent block.',
   },
 ];
+
 
 export default function BusinessUnitSetup() {
   const { idToken, claims } = useAuth();
@@ -63,9 +65,6 @@ export default function BusinessUnitSetup() {
       setLabel('');
       await loadBusinessUnits();
     } catch (err) {
-      // Surfaces the backend's actual 409/403 detail message rather than
-      // a generic failure — matches the "clear on-screen error" requirement
-      // (FR-0.2) rather than a silent or vague block.
       setSubmitError(err instanceof BusinessUnitApiError ? err.message : 'Failed to create Business Unit.');
     } finally {
       setSubmitting(false);
@@ -74,7 +73,6 @@ export default function BusinessUnitSetup() {
 
   return (
     <div className="space-y-6 max-w-3xl">
-      {/* Role model — informational, per FR-0.3 */}
       <section className="bg-surface-card border border-border-default rounded-lg p-5">
         <h2 className="text-h3 text-brand-navy mb-3">Role Model</h2>
         <div className="space-y-3">
@@ -90,12 +88,11 @@ export default function BusinessUnitSetup() {
         </div>
       </section>
 
-      {/* Business Units */}
       <section className="bg-surface-card border border-border-default rounded-lg p-5">
         <h2 className="text-h3 text-brand-navy mb-3">Business Units</h2>
 
         {loading && <p className="text-body text-text-secondary">Loading...</p>}
-        {loadError && <p role="alert" className="text-body text-status-action-text">{loadError}</p>}
+        <ErrorBanner message={loadError} />
 
         {!loading && !loadError && (
           <table role="grid" className="w-full text-body mb-5">
@@ -153,15 +150,14 @@ export default function BusinessUnitSetup() {
             </button>
           </form>
         ) : (
-          // FR-0.2: Users can view but not configure Business Units.
-          // A clear message, not a hidden/disabled form with no explanation.
           <p className="text-body text-text-tertiary">
             Only Admin or SME accounts can add Business Units.
           </p>
         )}
 
-        {submitError && <p role="alert" className="text-body text-status-action-text mt-3">{submitError}</p>}
+        <div className="mt-3"><ErrorBanner message={submitError} /></div>
       </section>
-    </div>
+
+         </div>
   );
 }
