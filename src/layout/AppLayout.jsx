@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
@@ -15,6 +16,21 @@ function roleChipLabel(role) {
   if (role === 'admin') return 'Admin';
   if (role === 'sme') return 'SME';
   return role ?? 'Unknown';
+}
+
+function useDarkMode() {
+  const [isDark, setIsDark] = useState(() => {
+    const stored = localStorage.getItem('theme');
+    if (stored) return stored === 'dark';
+    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+  });
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', isDark);
+    localStorage.setItem('theme', isDark ? 'dark' : 'light');
+  }, [isDark]);
+
+  return [isDark, setIsDark];
 }
 
 function Sidebar() {
@@ -72,18 +88,29 @@ function Sidebar() {
 function TopBar() {
   const { claims } = useAuth();
   const location = useLocation();
+  const [isDark, setIsDark] = useDarkMode();
   const current = NAV_ITEMS.find((item) => location.pathname.startsWith(item.path));
   const title = current?.title ?? current?.label ?? '';
 
   return (
     <header
       role="banner"
-      className="h-12 flex-shrink-0 flex items-center justify-between px-6 bg-surface-card border-b border-border-default"
+      className="h-12 flex-shrink-0 flex items-center justify-between px-6 bg-surface-card dark:bg-surface-card-dark border-b border-border-default dark:border-border-dark"
     >
-      <h1 className="text-h3 text-brand-navy">{title}</h1>
-      <span className="text-label uppercase tracking-wide text-text-secondary bg-surface-muted px-2.5 py-1 rounded-full">
-        {roleChipLabel(claims?.role)}
-      </span>
+      <h1 className="text-h3 text-brand-navy dark:text-white">{title}</h1>
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={() => setIsDark(!isDark)}
+          aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+          className="text-text-secondary dark:text-slate-400 hover:text-brand-teal text-label focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal rounded px-2 py-1"
+        >
+          {isDark ? 'Light mode' : 'Dark mode'}
+        </button>
+        <span className="text-label uppercase tracking-wide text-text-secondary dark:text-slate-400 bg-surface-muted dark:bg-surface-muted-dark px-2.5 py-1 rounded-full">
+          {roleChipLabel(claims?.role)}
+        </span>
+      </div>
     </header>
   );
 }

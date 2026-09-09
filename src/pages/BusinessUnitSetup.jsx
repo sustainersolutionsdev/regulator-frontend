@@ -23,7 +23,6 @@ const ROLE_MODEL = [
   },
 ];
 
-
 export default function BusinessUnitSetup() {
   const { idToken, claims } = useAuth();
   const [businessUnits, setBusinessUnits] = useState([]);
@@ -73,14 +72,14 @@ export default function BusinessUnitSetup() {
 
   return (
     <div className="space-y-6 max-w-3xl">
-      <section className="bg-surface-card border border-border-default rounded-lg p-5">
-        <h2 className="text-h3 text-brand-navy mb-3">Role Model</h2>
+      <section className="bg-surface-card dark:bg-surface-card-dark border border-border-default dark:border-border-dark rounded-lg p-5">
+        <h2 className="text-h3 text-brand-navy dark:text-white mb-3">Role Model</h2>
         <div className="space-y-3">
           {ROLE_MODEL.map((r) => (
             <div key={r.role} className="flex gap-4 text-body">
-              <span className="w-16 flex-shrink-0 font-semibold text-brand-navy">{r.role}</span>
+              <span className="w-16 flex-shrink-0 font-semibold text-brand-navy dark:text-white">{r.role}</span>
               <div>
-                <div className="text-text-secondary">{r.scope}</div>
+                <div className="text-text-secondary dark:text-slate-400">{r.scope}</div>
                 <div className="text-text-tertiary text-label mt-0.5">{r.detail}</div>
               </div>
             </div>
@@ -88,16 +87,16 @@ export default function BusinessUnitSetup() {
         </div>
       </section>
 
-      <section className="bg-surface-card border border-border-default rounded-lg p-5">
-        <h2 className="text-h3 text-brand-navy mb-3">Business Units</h2>
+      <section className="bg-surface-card dark:bg-surface-card-dark border border-border-default dark:border-border-dark rounded-lg p-5">
+        <h2 className="text-h3 text-brand-navy dark:text-white mb-3">Business Units</h2>
 
-        {loading && <p className="text-body text-text-secondary">Loading...</p>}
+        {loading && <p className="text-body text-text-secondary dark:text-slate-400">Loading...</p>}
         <ErrorBanner message={loadError} />
 
         {!loading && !loadError && (
           <table role="grid" className="w-full text-body mb-5">
             <thead>
-              <tr className="border-b border-border-default text-label uppercase text-text-tertiary">
+              <tr className="border-b border-border-default dark:border-border-dark text-label uppercase text-text-tertiary">
                 <th scope="col" className="text-left py-2">Code</th>
                 <th scope="col" className="text-left py-2">Label</th>
               </tr>
@@ -107,9 +106,9 @@ export default function BusinessUnitSetup() {
                 <tr><td colSpan={2} className="py-3 text-text-tertiary">No Business Units yet.</td></tr>
               ) : (
                 businessUnits.map((bu) => (
-                  <tr key={bu.id} className="border-b border-border-default">
+                  <tr key={bu.id} className="border-b border-border-default dark:border-border-dark">
                     <td className="py-2 cfr text-brand-teal">{bu.code}</td>
-                    <td className="py-2 text-text-primary">{bu.label}</td>
+                    <td className="py-2 text-text-primary dark:text-white">{bu.label}</td>
                   </tr>
                 ))
               )}
@@ -127,7 +126,7 @@ export default function BusinessUnitSetup() {
                 onChange={(e) => setBuCode(e.target.value)}
                 required
                 placeholder="BU3"
-                className="border border-border-default rounded-md px-3 py-2 text-body w-32"
+                className="border border-border-default dark:border-border-dark dark:bg-surface-muted-dark dark:text-white rounded-md px-3 py-2 text-body w-32"
               />
             </div>
             <div className="flex-1">
@@ -138,7 +137,7 @@ export default function BusinessUnitSetup() {
                 onChange={(e) => setLabel(e.target.value)}
                 required
                 placeholder="Data Centers"
-                className="border border-border-default rounded-md px-3 py-2 text-body w-full"
+                className="border border-border-default dark:border-border-dark dark:bg-surface-muted-dark dark:text-white rounded-md px-3 py-2 text-body w-full"
               />
             </div>
             <button
@@ -157,7 +156,6 @@ export default function BusinessUnitSetup() {
 
         <div className="mt-3"><ErrorBanner message={submitError} /></div>
       </section>
-
-         </div>
+    </div>
   );
 }
