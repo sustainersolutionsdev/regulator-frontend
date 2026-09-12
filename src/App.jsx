@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 import AppLayout from './layout/AppLayout';
 import BusinessUnitSetup from './pages/BusinessUnitSetup';
+import PeopleDirectory from './pages/PeopleDirectory';
 
 function SignInScreen() {
   const { login } = useAuth();
@@ -48,9 +49,11 @@ export default function App() {
   return (
     <Routes>
       <Route element={<AppLayout />}>
-  <Route path="/" element={<Navigate to="/settings" replace />} />
-  <Route path="/settings" element={<BusinessUnitSetup />} />
-</Route>
+       <Route path="/" element={<Navigate to="/settings" replace />} />
+        <Route path="/settings" element={<BusinessUnitSetup />} />
+        <Route path="/directory" element={<PeopleDirectory />} />
+      </Route>
+
     </Routes>
   );
 }

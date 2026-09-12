@@ -156,6 +156,7 @@ export default function BusinessUnitSetup() {
 
         <div className="mt-3"><ErrorBanner message={submitError} /></div>
       </section>
-    </div>
+
+          </div>
   );
 }
