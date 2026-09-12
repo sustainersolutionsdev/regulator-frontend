@@ -35,10 +35,6 @@ export default function AddUsersForm({ onUserAdded }) {
       .catch(() => setBuLoadError('Failed to load Business Units for assignment.'));
   }, [idToken]);
 
-  // FR-0.4: switching to Admin/SME auto-scopes to all BUs (matches the
-  // backend's own override in create_user()) — clear any manual
-  // selection so the UI never implies a narrower scope than what's
-  // actually granted.
   const handleRoleChange = (newRole) => {
     setRole(newRole);
     if (newRole === 'admin' || newRole === 'sme') {
@@ -104,7 +100,7 @@ export default function AddUsersForm({ onUserAdded }) {
           onChange={(e) => setEmail(e.target.value)}
           required
           placeholder="name@company.com"
-          className="border border-border-default dark:border-border-dark dark:bg-surface-muted-dark dark:text-white rounded-md px-3 py-2 text-body w-full"
+          className="border border-border-default dark:border-border-dark dark:bg-surface-muted-dark dark:text-white rounded-md px-3 py-2 text-body w-full focus:outline-none focus:ring-2 focus:ring-brand-teal focus:border-transparent"
         />
       </div>
 
@@ -118,7 +114,7 @@ export default function AddUsersForm({ onUserAdded }) {
           onChange={(e) => setDisplayName(e.target.value)}
           required
           placeholder="Jane Doe"
-          className="border border-border-default dark:border-border-dark dark:bg-surface-muted-dark dark:text-white rounded-md px-3 py-2 text-body w-full"
+          className="border border-border-default dark:border-border-dark dark:bg-surface-muted-dark dark:text-white rounded-md px-3 py-2 text-body w-full focus:outline-none focus:ring-2 focus:ring-brand-teal focus:border-transparent"
         />
       </div>
 
@@ -130,7 +126,7 @@ export default function AddUsersForm({ onUserAdded }) {
           id="user_role"
           value={role}
           onChange={(e) => handleRoleChange(e.target.value)}
-          className="border border-border-default dark:border-border-dark dark:bg-surface-muted-dark dark:text-white rounded-md px-3 py-2 text-body w-full"
+          className="border border-border-default dark:border-border-dark dark:bg-surface-muted-dark dark:text-white rounded-md px-3 py-2 text-body w-full focus:outline-none focus:ring-2 focus:ring-brand-teal focus:border-transparent"
         >
           {ROLE_OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -139,7 +135,7 @@ export default function AddUsersForm({ onUserAdded }) {
       </div>
 
       <div>
-        <span className="block text-label uppercase text-text-tertiary mb-1">Business Unit Assignment</span>
+        <span id="bu-assignment-label" className="block text-label uppercase text-text-tertiary mb-1">Business Unit Assignment</span>
         {isAllBuRole ? (
           <p className="text-body text-text-secondary dark:text-slate-400">
             All Business Units, tenant-wide (fixed for Admin/SME).
@@ -150,14 +146,14 @@ export default function AddUsersForm({ onUserAdded }) {
             {businessUnits.length === 0 && !buLoadError && (
               <p className="text-body text-text-tertiary">Loading Business Units...</p>
             )}
-            <div className="space-y-1.5">
+            <div className="space-y-1.5" role="group" aria-labelledby="bu-assignment-label">
               {businessUnits.map((bu) => (
                 <label key={bu.id} className="flex items-center gap-2 text-body text-text-primary dark:text-white">
                   <input
                     type="checkbox"
                     checked={selectedBuIds.includes(bu.id)}
                     onChange={() => toggleBu(bu.id)}
-                    className="rounded border-border-default dark:border-border-dark"
+                    className="rounded border-border-default dark:border-border-dark focus:ring-2 focus:ring-brand-teal"
                   />
                   <span className="cfr text-brand-teal">{bu.code}</span>
                   <span className="text-text-secondary dark:text-slate-400">{bu.label}</span>
@@ -171,7 +167,7 @@ export default function AddUsersForm({ onUserAdded }) {
       <button
         type="submit"
         disabled={submitting}
-        className="bg-brand-teal text-white rounded-md px-4 py-2 text-body font-medium disabled:opacity-50"
+        className="bg-brand-teal text-white rounded-md px-4 py-2 text-body font-medium disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-brand-teal focus:ring-offset-2"
       >
         {submitting ? 'Creating...' : 'Add User'}
       </button>
