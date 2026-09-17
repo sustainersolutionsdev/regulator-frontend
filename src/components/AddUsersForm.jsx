@@ -18,8 +18,10 @@ export default function AddUsersForm({ onUserAdded }) {
 
   const [email, setEmail] = useState('');
   const [displayName, setDisplayName] = useState('');
+  const [title, setTitle] = useState('');
   const [role, setRole] = useState('user');
   const [selectedBuIds, setSelectedBuIds] = useState([]);
+  const [notes, setNotes] = useState('');
 
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState(null);
@@ -63,14 +65,18 @@ export default function AddUsersForm({ onUserAdded }) {
       const result = await createUser(idToken, {
         email: email.trim(),
         displayName: displayName.trim(),
+        title: title.trim(),
         role,
         businessUnitIds: selectedBuIds,
+        notes: notes.trim(),
       });
       setSuccessMessage(`${email.trim()} created. Send them the reset link to set a password.`);
       setEmail('');
       setDisplayName('');
+      setTitle('');
       setRole('user');
       setSelectedBuIds([]);
+      setNotes('');
       onUserAdded?.(result);
     } catch (err) {
       setSubmitError(err instanceof UserApiError ? err.message : 'Failed to create user.');
@@ -81,7 +87,7 @@ export default function AddUsersForm({ onUserAdded }) {
 
   if (!canConfigure) {
     return (
-      <p className="text-body text-text-tertiary">
+      <p className="text-body text-text-tertiary dark:text-slate-300">
         Only Admin or SME accounts can add users.
       </p>
     );
@@ -90,7 +96,7 @@ export default function AddUsersForm({ onUserAdded }) {
   return (
     <form onSubmit={handleSubmit} className="space-y-4 max-w-xl">
       <div>
-        <label htmlFor="user_email" className="block text-label uppercase text-text-tertiary mb-1">
+        <label htmlFor="user_email" className="block text-label uppercase text-text-tertiary dark:text-slate-300 mb-1">
           Email
         </label>
         <input
@@ -105,7 +111,7 @@ export default function AddUsersForm({ onUserAdded }) {
       </div>
 
       <div>
-        <label htmlFor="user_display_name" className="block text-label uppercase text-text-tertiary mb-1">
+        <label htmlFor="user_display_name" className="block text-label uppercase text-text-tertiary dark:text-slate-300 mb-1">
           Name
         </label>
         <input
@@ -119,7 +125,20 @@ export default function AddUsersForm({ onUserAdded }) {
       </div>
 
       <div>
-        <label htmlFor="user_role" className="block text-label uppercase text-text-tertiary mb-1">
+        <label htmlFor="user_title" className="block text-label uppercase text-text-tertiary dark:text-slate-300 mb-1">
+          Title <span className="normal-case text-text-tertiary dark:text-slate-300">(optional)</span>
+        </label>
+        <input
+          id="user_title"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="Compliance Analyst"
+          className="border border-border-default dark:border-border-dark dark:bg-surface-muted-dark dark:text-white rounded-md px-3 py-2 text-body w-full focus:outline-none focus:ring-2 focus:ring-brand-teal focus:border-transparent"
+        />
+      </div>
+
+      <div>
+        <label htmlFor="user_role" className="block text-label uppercase text-text-tertiary dark:text-slate-300 mb-1">
           Role
         </label>
         <select
@@ -135,7 +154,7 @@ export default function AddUsersForm({ onUserAdded }) {
       </div>
 
       <div>
-        <span id="bu-assignment-label" className="block text-label uppercase text-text-tertiary mb-1">Business Unit Assignment</span>
+        <span id="bu-assignment-label" className="block text-label uppercase text-text-tertiary dark:text-slate-300 mb-1">Business Unit Assignment</span>
         {isAllBuRole ? (
           <p className="text-body text-text-secondary dark:text-slate-400">
             All Business Units, tenant-wide (fixed for Admin/SME).
@@ -144,7 +163,7 @@ export default function AddUsersForm({ onUserAdded }) {
           <>
             <ErrorBanner message={buLoadError} />
             {businessUnits.length === 0 && !buLoadError && (
-              <p className="text-body text-text-tertiary">Loading Business Units...</p>
+              <p className="text-body text-text-tertiary dark:text-slate-300">Loading Business Units...</p>
             )}
             <div className="space-y-1.5" role="group" aria-labelledby="bu-assignment-label">
               {businessUnits.map((bu) => (
@@ -164,6 +183,20 @@ export default function AddUsersForm({ onUserAdded }) {
         )}
       </div>
 
+      <div>
+        <label htmlFor="user_notes" className="block text-label uppercase text-text-tertiary dark:text-slate-300 mb-1">
+          Notes <span className="normal-case text-text-tertiary dark:text-slate-300">(optional)</span>
+        </label>
+        <textarea
+          id="user_notes"
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          rows={3}
+          placeholder="Enter any notes"
+          className="border border-border-default dark:border-border-dark dark:bg-surface-muted-dark dark:text-white rounded-md px-3 py-2 text-body w-full focus:outline-none focus:ring-2 focus:ring-brand-teal focus:border-transparent"
+        />
+      </div>
+
       <button
         type="submit"
         disabled={submitting}
@@ -174,7 +207,7 @@ export default function AddUsersForm({ onUserAdded }) {
 
       <ErrorBanner message={submitError} />
       {successMessage && (
-        <div role="status" className="bg-status-compliant-bg border-status-compliant-border text-status-compliant-text border rounded-md px-3 py-2 text-body">
+        <div role="status" className="bg-status-compliant-bg border-status-compliant-border text-green-700 border rounded-md px-3 py-2 text-body">
           {successMessage}
         </div>
       )}
