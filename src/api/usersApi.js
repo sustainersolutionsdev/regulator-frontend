@@ -10,15 +10,17 @@ export function fetchUsers(idToken) {
   return apiRequest('/users', { idToken });
 }
 
-export function createUser(idToken, { email, displayName, role, businessUnitIds }) {
+export function createUser(idToken, { email, displayName, title, role, businessUnitIds, notes }) {
   return apiRequest('/users', {
     method: 'POST',
     idToken,
     body: {
       email,
       display_name: displayName,
+      title,
       role,
       business_unit_ids: businessUnitIds,
+      notes,
     },
   });
 }
