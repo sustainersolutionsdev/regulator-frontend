@@ -64,3 +64,11 @@ export async function uploadRegulationDocument(idToken, file) {
 
   return res.json();
 }
+
+/**
+ * fetchRegulations — T011. Every non-hidden regulation in the caller's
+ * tenant, sorted by due date. Screens apply the Roadmap/Dashboard toggle.
+ */
+export function fetchRegulations(idToken) {
+  return apiRequest('/regulations', { idToken });
+}

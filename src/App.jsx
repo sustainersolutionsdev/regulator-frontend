@@ -5,6 +5,7 @@ import AppLayout from './layout/AppLayout';
 import BusinessUnitSetup from './pages/BusinessUnitSetup';
 import PeopleDirectory from './pages/PeopleDirectory';
 import AddRegulationForm from './components/AddRegulationForm';
+import RegulationRoadmap from './pages/RegulationRoadmap';
 
 function SignInScreen() {
   const { login } = useAuth();
@@ -50,8 +51,8 @@ export default function App() {
   return (
     <Routes>
       <Route element={<AppLayout />}>
-       <Route path="/" element={<Navigate to="/settings" replace />} />
-        <Route path="/settings" element={<BusinessUnitSetup />} />
+       <Route path="/" element={<Navigate to="/roadmap" replace />} />
+        <Route path="/roadmap" element={<RegulationRoadmap />} />
         <Route path="/directory" element={<PeopleDirectory />} />
         <Route path="/add-regulation" element={<AddRegulationForm />} />
       </Route>

@@ -3,7 +3,7 @@ import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 export const NAV_ITEMS = [
-  { path: '/roadmap', label: 'Roadmap' },
+  { path: '/roadmap', label: 'Roadmap', title: 'Regulation Roadmap' },
   { path: '/dashboard', label: 'Dashboard' },
   { path: '/ai-insights', label: 'AI Insights' },
   { path: '/add-regulation', label: 'Add Regulation' },
