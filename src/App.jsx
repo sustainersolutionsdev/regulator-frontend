@@ -6,6 +6,7 @@ import BusinessUnitSetup from './pages/BusinessUnitSetup';
 import PeopleDirectory from './pages/PeopleDirectory';
 import AddRegulationForm from './components/AddRegulationForm';
 import RegulationRoadmap from './pages/RegulationRoadmap';
+import MonthlyCalendar from './pages/MonthlyCalendar';
 
 function SignInScreen() {
   const { login } = useAuth();
@@ -51,6 +52,7 @@ export default function App() {
       <Route element={<AppLayout />}>
         <Route path="/" element={<Navigate to="/roadmap" replace />} />
         <Route path="/roadmap" element={<RegulationRoadmap />} />
+        <Route path="/roadmap/calendar" element={<MonthlyCalendar />} />
         <Route path="/settings" element={<BusinessUnitSetup />} />
         <Route path="/directory" element={<PeopleDirectory />} />
         <Route path="/add-regulation" element={<AddRegulationForm />} />

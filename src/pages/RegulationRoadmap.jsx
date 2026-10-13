@@ -5,6 +5,7 @@ import { fetchRegulations, RegulationApiError } from '../api/regulationsApi';
 import { fetchBusinessUnits } from '../api/businessUnitsApi';
 import ErrorBanner from '../components/ErrorBanner';
 import RegulationFilterBar from '../components/RegulationFilterBar';
+import RoadmapViewSwitch from '../components/RoadmapViewSwitch';
 import {
   applyFilters,
   businessUnitOptions,
@@ -38,6 +39,9 @@ import {
  *  - Bars with a start and end. Srinivas's Add Regulation form has a single
  *    Due Date, so each regulation is a point on the timeline at that date.
  *  - Editing from the Roadmap (T014).
+ *
+ * The monthly calendar (T013, FR-1.3) is a separate screen at
+ * /roadmap/calendar, reached through RoadmapViewSwitch.
  *
  * Filters (T012) use the shared RegulationFilterBar + utils/regulationFilters
  * (reused by the Dashboard, T019) and live in the URL query string.
@@ -269,6 +273,8 @@ export default function RegulationRoadmap() {
 
   return (
     <div className="space-y-4 max-w-6xl">
+      <RoadmapViewSwitch />
+
       <section
         aria-label="Roadmap view controls"
         className="bg-surface-card dark:bg-surface-card-dark border border-border-default dark:border-border-dark rounded-lg px-5 py-4 flex flex-wrap items-center gap-x-6 gap-y-3"
