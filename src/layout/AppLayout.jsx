@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
-export const NAV_ITEMS = [
+const NAV_ITEMS = [
   { path: '/roadmap', label: 'Roadmap', title: 'Regulation Roadmap' },
   { path: '/dashboard', label: 'Dashboard' },
   { path: '/ai-insights', label: 'AI Insights' },

@@ -28,6 +28,8 @@ export default function BusinessUnitSetup() {
   const [businessUnits, setBusinessUnits] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
+  // Bumping this re-runs the load effect (e.g. after creating a Business Unit).
+  const [reloadKey, setReloadKey] = useState(0);
 
   const [buCode, setBuCode] = useState('');
   const [label, setLabel] = useState('');
@@ -36,23 +38,28 @@ export default function BusinessUnitSetup() {
 
   const canConfigure = claims?.role === 'admin' || claims?.role === 'sme';
 
-  const loadBusinessUnits = async () => {
-    setLoading(true);
-    setLoadError(null);
-    try {
-      const data = await fetchBusinessUnits(idToken);
-      setBusinessUnits(data);
-    } catch (err) {
-      setLoadError(err instanceof BusinessUnitApiError ? err.message : 'Failed to load Business Units.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  // State is only set inside the promise callbacks, never synchronously in
+  // the effect body (react-hooks/set-state-in-effect).
   useEffect(() => {
-    if (idToken) loadBusinessUnits();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [idToken]);
+    if (!idToken) return undefined;
+    let cancelled = false;
+    fetchBusinessUnits(idToken)
+      .then((data) => {
+        if (cancelled) return;
+        setBusinessUnits(data);
+        setLoadError(null);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setLoadError(err instanceof BusinessUnitApiError ? err.message : 'Failed to load Business Units.');
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [idToken, reloadKey]);
 
   const handleCreate = async (e) => {
     e.preventDefault();
@@ -62,7 +69,7 @@ export default function BusinessUnitSetup() {
       await createBusinessUnit(idToken, buCode.trim(), label.trim());
       setBuCode('');
       setLabel('');
-      await loadBusinessUnits();
+      setReloadKey((k) => k + 1);
     } catch (err) {
       setSubmitError(err instanceof BusinessUnitApiError ? err.message : 'Failed to create Business Unit.');
     } finally {
@@ -156,7 +163,6 @@ export default function BusinessUnitSetup() {
 
         <div className="mt-3"><ErrorBanner message={submitError} /></div>
       </section>
-
-          </div>
+    </div>
   );
 }

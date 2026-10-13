@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { fetchUsers, UserApiError } from '../api/usersApi';
 import { fetchBusinessUnits } from '../api/businessUnitsApi';
@@ -48,7 +48,7 @@ function UserCard({ user, buLabelByCode }) {
         <div className="min-w-0 pt-0.5">
           <div className="text-sm font-semibold text-text-primary dark:text-white truncate leading-tight">
             {user.displayName || user.email}
-                    </div>
+          </div>
           <a href={`mailto:${user.email}`} className="text-xs text-text-tertiary hover:text-brand-teal truncate block mt-0.5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-teal rounded-sm">
             {user.email}
           </a>
@@ -81,6 +81,8 @@ export default function PeopleDirectory() {
   const [businessUnits, setBusinessUnits] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
+  // Bumping this re-runs the load effect (e.g. after a user is added).
+  const [reloadKey, setReloadKey] = useState(0);
 
   const [query, setQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState('All Roles');
@@ -88,27 +90,29 @@ export default function PeopleDirectory() {
 
   const canConfigure = claims?.role === 'admin' || claims?.role === 'sme';
 
-  const loadDirectory = useCallback(async () => {
-    if (!idToken) return;
-    setLoading(true);
-    setLoadError(null);
-    try {
-      const [userList, buList] = await Promise.all([
-        fetchUsers(idToken),
-        fetchBusinessUnits(idToken),
-      ]);
-      setUsers(userList);
-      setBusinessUnits(buList);
-    } catch (err) {
-      setLoadError(err instanceof UserApiError ? err.message : 'Failed to load the directory.');
-    } finally {
-      setLoading(false);
-    }
-  }, [idToken]);
-
+  // State is only set inside the promise callbacks, never synchronously in
+  // the effect body (react-hooks/set-state-in-effect).
   useEffect(() => {
-    loadDirectory();
-  }, [loadDirectory]);
+    if (!idToken) return undefined;
+    let cancelled = false;
+    Promise.all([fetchUsers(idToken), fetchBusinessUnits(idToken)])
+      .then(([userList, buList]) => {
+        if (cancelled) return;
+        setUsers(userList);
+        setBusinessUnits(buList);
+        setLoadError(null);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setLoadError(err instanceof UserApiError ? err.message : 'Failed to load the directory.');
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [idToken, reloadKey]);
 
   const buLabelByCode = useMemo(
     () => Object.fromEntries(businessUnits.map((bu) => [bu.code, bu.label])),
@@ -148,7 +152,7 @@ export default function PeopleDirectory() {
       {canConfigure && (
         <section className="bg-surface-card dark:bg-surface-card-dark border border-border-default dark:border-border-dark rounded-lg p-5">
           <h2 className="text-h3 text-brand-navy dark:text-white mb-3">Add User</h2>
-          <AddUsersForm onUserAdded={loadDirectory} />
+          <AddUsersForm onUserAdded={() => setReloadKey((k) => k + 1)} />
         </section>
       )}
 
