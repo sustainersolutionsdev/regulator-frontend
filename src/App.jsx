@@ -5,6 +5,7 @@ import AppLayout from './layout/AppLayout';
 import BusinessUnitSetup from './pages/BusinessUnitSetup';
 import PeopleDirectory from './pages/PeopleDirectory';
 import AddRegulationForm from './components/AddRegulationForm';
+import RegulationRoadmap from './pages/RegulationRoadmap';
 
 function SignInScreen() {
   const { login } = useAuth();
@@ -16,14 +17,12 @@ function SignInScreen() {
     const form = new FormData(e.target);
     try {
       await login(form.get('email'), form.get('password'));
-    } catch (err) {
+    } catch {
       setError('Sign-in failed. Check the email and password.');
     }
   };
 
-  // Placeholder only — the real Login/SSO screen (Screen 0) is explicitly
-  // flagged in the UI/UX doc as unconfirmed scope, pending business
-  // owner decision on MSAL/Entra vs. this Firebase-based approach.
+  // Dev sign-in stand-in. The real Login screen (Screen 0) is T051.
   return (
     <div className="min-h-screen bg-surface-page flex items-center justify-center">
       <form onSubmit={handleLogin} className="bg-surface-card border border-border-default rounded-lg p-6 w-80 space-y-3">
@@ -50,12 +49,12 @@ export default function App() {
   return (
     <Routes>
       <Route element={<AppLayout />}>
-       <Route path="/" element={<Navigate to="/settings" replace />} />
+        <Route path="/" element={<Navigate to="/roadmap" replace />} />
+        <Route path="/roadmap" element={<RegulationRoadmap />} />
         <Route path="/settings" element={<BusinessUnitSetup />} />
         <Route path="/directory" element={<PeopleDirectory />} />
         <Route path="/add-regulation" element={<AddRegulationForm />} />
       </Route>
-
     </Routes>
   );
 }
