@@ -1,8 +1,18 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { fetchRegulations, RegulationApiError } from '../api/regulationsApi';
 import { fetchBusinessUnits } from '../api/businessUnitsApi';
 import ErrorBanner from '../components/ErrorBanner';
+import RegulationFilterBar from '../components/RegulationFilterBar';
+import {
+  applyFilters,
+  businessUnitOptions,
+  countActiveFilters,
+  distinctOptions,
+  filtersFromSearchParams,
+  writeFiltersToSearchParams,
+} from '../utils/regulationFilters';
 import {
   formatDueDate,
   formatMonthYear,
@@ -11,7 +21,7 @@ import {
 } from '../utils/roadmapDates';
 
 /**
- * RegulationRoadmap - Screen 5 (T011, FR-1.1).
+ * RegulationRoadmap - Screen 5 (T011 FR-1.1, T012 FR-1.2).
  *
  * X-axis = years, Y-axis = each regulation's Abbreviated Name (full title on
  * hover, focus or tap). Defaults to a 4-year window starting this year; the
@@ -27,7 +37,10 @@ import {
  *    then; nothing is coloured red/amber/green without a real status.
  *  - Bars with a start and end. Srinivas's Add Regulation form has a single
  *    Due Date, so each regulation is a point on the timeline at that date.
- *  - Filters (T012) and editing from the Roadmap (T014).
+ *  - Editing from the Roadmap (T014).
+ *
+ * Filters (T012) use the shared RegulationFilterBar + utils/regulationFilters
+ * (reused by the Dashboard, T019) and live in the URL query string.
  */
 
 const WINDOW_OPTIONS = [2, 4, 6, 10];
@@ -182,27 +195,37 @@ export default function RegulationRoadmap() {
   const [hoverId, setHoverId] = useState(null);
   const [pinnedId, setPinnedId] = useState(null);
 
-  const loadRoadmap = useCallback(async () => {
-    if (!idToken) return;
-    setLoading(true);
-    setLoadError(null);
-    try {
-      const [regList, buList] = await Promise.all([
-        fetchRegulations(idToken),
-        fetchBusinessUnits(idToken),
-      ]);
-      setRegulations(regList);
-      setBusinessUnits(buList);
-    } catch (err) {
-      setLoadError(err instanceof RegulationApiError ? err.message : 'Failed to load the Roadmap.');
-    } finally {
-      setLoading(false);
-    }
-  }, [idToken]);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const filters = useMemo(() => filtersFromSearchParams(searchParams), [searchParams]);
+  const setFilters = useCallback(
+    (next, { replace = false } = {}) =>
+      setSearchParams((prev) => writeFiltersToSearchParams(next, prev), { replace }),
+    [setSearchParams]
+  );
 
+  // State is only set inside the promise callbacks (never synchronously in
+  // the effect body), which is what react-hooks/set-state-in-effect requires.
   useEffect(() => {
-    loadRoadmap();
-  }, [loadRoadmap]);
+    if (!idToken) return undefined;
+    let cancelled = false;
+    Promise.all([fetchRegulations(idToken), fetchBusinessUnits(idToken)])
+      .then(([regList, buList]) => {
+        if (cancelled) return;
+        setRegulations(regList);
+        setBusinessUnits(buList);
+        setLoadError(null);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setLoadError(err instanceof RegulationApiError ? err.message : 'Failed to load the Roadmap.');
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [idToken]);
 
   const buLabelByCode = useMemo(
     () => Object.fromEntries(businessUnits.map((bu) => [bu.code, bu.label])),
@@ -214,9 +237,24 @@ export default function RegulationRoadmap() {
     [regulations]
   );
 
+  // Options come from everything on the Roadmap (not the filtered subset),
+  // so picking one Domain never hides the other Domain choices.
+  const filterOptions = useMemo(
+    () => ({
+      domain: distinctOptions(onRoadmap, 'domain'),
+      bu: businessUnitOptions(onRoadmap, businessUnits),
+      country: distinctOptions(onRoadmap, 'country'),
+      region: distinctOptions(onRoadmap, 'region'),
+    }),
+    [onRoadmap, businessUnits]
+  );
+
+  const filtered = useMemo(() => applyFilters(onRoadmap, filters), [onRoadmap, filters]);
+  const filtersActive = countActiveFilters(filters) > 0;
+
   const { visible, earlier, later, undated } = useMemo(
-    () => partitionByWindow(onRoadmap, startYear, years),
-    [onRoadmap, startYear, years]
+    () => partitionByWindow(filtered, startYear, years),
+    [filtered, startYear, years]
   );
 
   const todayPosition = positionInWindow(new Date(), startYear, years);
@@ -290,10 +328,20 @@ export default function RegulationRoadmap() {
           )}
         </div>
 
-        <div className="text-label text-text-tertiary dark:text-slate-300 ml-auto" aria-live="polite" aria-atomic="true">
-          {loading ? '' : `${visible.length} of ${onRoadmap.length} on Roadmap shown`}
-        </div>
       </section>
+
+      {!loading && !loadError && onRoadmap.length > 0 && (
+        <RegulationFilterBar
+          filters={filters}
+          onChange={setFilters}
+          options={filterOptions}
+          resultLabel={
+            filtersActive
+              ? `${filtered.length} of ${onRoadmap.length} match · ${visible.length} in ${startYear}–${endYear}`
+              : `${visible.length} of ${onRoadmap.length} on Roadmap in ${startYear}–${endYear}`
+          }
+        />
+      )}
 
       <section className="bg-surface-card dark:bg-surface-card-dark border border-border-default dark:border-border-dark rounded-lg">
         <h2 className="sr-only">Regulation timeline, {startYear} to {endYear}</h2>
@@ -333,7 +381,9 @@ export default function RegulationRoadmap() {
 
               {visible.length === 0 ? (
                 <p className="px-5 py-8 text-center text-body text-text-tertiary dark:text-slate-400 border-t border-border-default dark:border-border-dark">
-                  No Roadmap regulations are due between {startYear} and {endYear}.
+                  {filtersActive && filtered.length === 0
+                    ? 'No Roadmap regulations match these filters.'
+                    : `No ${filtersActive ? 'matching ' : ''}Roadmap regulations are due between ${startYear} and ${endYear}.`}
                 </p>
               ) : (
                 <ul role="list" aria-label={`Regulations due ${startYear} to ${endYear}, by due date`}>
