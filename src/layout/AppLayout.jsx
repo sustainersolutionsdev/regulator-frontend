@@ -90,7 +90,9 @@ function TopBar() {
   const location = useLocation();
   const [isDark, setIsDark] = useDarkMode();
   const current = NAV_ITEMS.find((item) => location.pathname.startsWith(item.path));
-  const title = current?.title ?? current?.label ?? '';
+  const title = location.pathname.startsWith('/roadmap/calendar')
+    ? 'Monthly Calendar'
+    : (current?.title ?? current?.label ?? '');
 
   return (
     <header
