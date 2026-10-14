@@ -1,5 +1,5 @@
 /**
- * regulationsApi.js — Regulation creation + document upload calls.
+ * regulationsApi.js — Regulation create / list / edit / remove + document upload.
  *
  * Field set corrected against Srinivas's actual "Input form to Add
  * Regulation" doc — the frozen Requirements Document's FR-0.7 had
@@ -71,4 +71,27 @@ export async function uploadRegulationDocument(idToken, file) {
  */
 export function fetchRegulations(idToken) {
   return apiRequest('/regulations', { idToken });
+}
+
+/**
+ * updateRegulation — T014. `changes` uses the API's snake_case field names
+ * and holds only the fields being changed. Admin/SME only.
+ */
+export function updateRegulation(idToken, regulationId, changes) {
+  return apiRequest(`/regulations/${encodeURIComponent(regulationId)}`, {
+    method: 'PATCH',
+    idToken,
+    body: changes,
+  });
+}
+
+/**
+ * removeRegulation — T014. Soft delete: hidden everywhere, never erased.
+ * Admin/SME only.
+ */
+export function removeRegulation(idToken, regulationId) {
+  return apiRequest(`/regulations/${encodeURIComponent(regulationId)}`, {
+    method: 'DELETE',
+    idToken,
+  });
 }

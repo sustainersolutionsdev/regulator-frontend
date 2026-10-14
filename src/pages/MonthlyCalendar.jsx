@@ -5,6 +5,7 @@ import { fetchRegulations, RegulationApiError } from '../api/regulationsApi';
 import { fetchBusinessUnits } from '../api/businessUnitsApi';
 import ErrorBanner from '../components/ErrorBanner';
 import RoadmapViewSwitch from '../components/RoadmapViewSwitch';
+import RegulationEditPanel from '../components/RegulationEditPanel';
 import { formatDueDate } from '../utils/roadmapDates';
 import {
   DAY_NAMES,
@@ -36,11 +37,15 @@ import {
  * (T018); nothing is coloured red/amber/green without a real status.
  *
  * The month lives in the URL (?month=2026-10), so Back and reload keep it.
+ *
+ * Editing (T014): Admin and SME see an Edit button in a chip's details,
+ * which opens RegulationEditPanel. Users get no edit controls (Srinivas,
+ * Oct 13 2026).
  */
 
 const MAX_CHIPS_PER_DAY = 3;
 
-function DetailPopover({ id, reg, buLabelByCode, alignRight, onClose, anchorRef }) {
+function DetailPopover({ id, reg, buLabelByCode, alignRight, onClose, anchorRef, onEdit }) {
   const ref = useRef(null);
 
   useEffect(() => {
@@ -90,18 +95,29 @@ function DetailPopover({ id, reg, buLabelByCode, alignRight, onClose, anchorRef 
           {reg.notes}
         </p>
       )}
-      <button
-        type="button"
-        onClick={onClose}
-        className="mt-2 text-xs text-brand-teal dark:text-teal-300 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal rounded"
-      >
-        Close
-      </button>
+      <div className="mt-2 flex items-center gap-3">
+        {onEdit && (
+          <button
+            type="button"
+            onClick={onEdit}
+            className="text-xs px-2 py-1 rounded bg-brand-teal text-white hover:bg-brand-teal/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal focus-visible:ring-offset-1"
+          >
+            Edit
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={onClose}
+          className="text-xs text-brand-teal dark:text-teal-300 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal rounded"
+        >
+          Close
+        </button>
+      </div>
     </div>
   );
 }
 
-function RegulationChip({ reg, popoverKey, openKey, setOpenKey, buLabelByCode, alignRight }) {
+function RegulationChip({ reg, popoverKey, openKey, setOpenKey, buLabelByCode, alignRight, onEdit }) {
   const anchorRef = useRef(null);
   const isOpen = openKey === popoverKey;
   const popoverId = `cal-pop-${popoverKey.replace(/[^a-zA-Z0-9-]/g, '-')}`;
@@ -137,6 +153,14 @@ function RegulationChip({ reg, popoverKey, openKey, setOpenKey, buLabelByCode, a
           alignRight={alignRight}
           anchorRef={anchorRef}
           onClose={() => setOpenKey(null)}
+          onEdit={
+            onEdit
+              ? () => {
+                  setOpenKey(null);
+                  onEdit(reg);
+                }
+              : undefined
+          }
         />
       )}
     </div>
@@ -144,7 +168,8 @@ function RegulationChip({ reg, popoverKey, openKey, setOpenKey, buLabelByCode, a
 }
 
 export default function MonthlyCalendar() {
-  const { idToken } = useAuth();
+  const { idToken, claims } = useAuth();
+  const canEdit = claims?.role === 'admin' || claims?.role === 'sme';
   const today = new Date();
 
   const [regulations, setRegulations] = useState([]);
@@ -153,6 +178,9 @@ export default function MonthlyCalendar() {
   const [loadError, setLoadError] = useState(null);
   const [openKey, setOpenKey] = useState(null);
   const [expandedDay, setExpandedDay] = useState(null);
+  const [editing, setEditing] = useState(null);
+  // Bumping this re-runs the load effect after an edit or removal.
+  const [reloadKey, setReloadKey] = useState(0);
 
   const [searchParams, setSearchParams] = useSearchParams();
   const { year, monthIndex } = monthFromParam(searchParams.get('month'), today);
@@ -178,7 +206,7 @@ export default function MonthlyCalendar() {
     return () => {
       cancelled = true;
     };
-  }, [idToken]);
+  }, [idToken, reloadKey]);
 
   const buLabelByCode = useMemo(
     () => Object.fromEntries(businessUnits.map((bu) => [bu.code, bu.label])),
@@ -340,6 +368,7 @@ export default function MonthlyCalendar() {
                                 setOpenKey={setOpenKey}
                                 buLabelByCode={buLabelByCode}
                                 alignRight={col >= 5}
+                                onEdit={canEdit ? setEditing : undefined}
                               />
                             ))}
                             {(hidden > 0 || expanded) && items.length > MAX_CHIPS_PER_DAY && (
@@ -385,6 +414,7 @@ export default function MonthlyCalendar() {
                               setOpenKey={setOpenKey}
                               buLabelByCode={buLabelByCode}
                               alignRight={false}
+                              onEdit={canEdit ? setEditing : undefined}
                             />
                           ))}
                         </div>
@@ -403,6 +433,18 @@ export default function MonthlyCalendar() {
           </>
         )}
       </section>
+
+      {editing && (
+        <RegulationEditPanel
+          regulation={editing}
+          businessUnits={businessUnits}
+          onClose={() => setEditing(null)}
+          onSaved={() => {
+            setEditing(null);
+            setReloadKey((k) => k + 1);
+          }}
+        />
+      )}
     </div>
   );
 }
