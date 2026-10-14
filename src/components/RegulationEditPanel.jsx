@@ -72,6 +72,7 @@ export default function RegulationEditPanel({ regulation, businessUnits, onClose
   const { idToken } = useAuth();
   const dialogRef = useRef(null);
   const titleId = useId();
+  const confirmId = useId();
   const domainListId = useId();
   const ids = {
     title: useId(),
@@ -89,11 +90,17 @@ export default function RegulationEditPanel({ regulation, businessUnits, onClose
   const [error, setError] = useState(null);
   const [confirmingRemove, setConfirmingRemove] = useState(false);
 
+  // Open as a modal on mount; on unmount, close it and hand focus back to
+  // whatever opened the panel (or to <main> if that element is gone, e.g.
+  // the regulation was just removed) so keyboard users aren't dropped.
   useEffect(() => {
     const dialog = dialogRef.current;
+    const opener = document.activeElement;
     if (dialog && !dialog.open) dialog.showModal();
     return () => {
       if (dialog?.open) dialog.close();
+      const target = opener && opener.isConnected ? opener : document.getElementById('main-content');
+      target?.focus();
     };
   }, []);
 
@@ -169,7 +176,7 @@ export default function RegulationEditPanel({ regulation, businessUnits, onClose
             onClick={onClose}
             disabled={saving}
             aria-label="Close"
-            className="text-text-secondary dark:text-slate-300 hover:text-brand-teal text-lg leading-none px-2 py-1 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal"
+            className="text-text-secondary dark:text-slate-300 hover:text-brand-teal dark:hover:text-teal-300 text-lg leading-none px-2 py-1 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal"
           >
             &times;
           </button>
@@ -206,7 +213,7 @@ export default function RegulationEditPanel({ regulation, businessUnits, onClose
                 value={form.dueDate}
                 onChange={(e) => set({ dueDate: e.target.value })}
                 required
-                className={fieldInput}
+                className={`${fieldInput} dark:[color-scheme:dark]`}
               />
             </div>
             <div>
@@ -293,7 +300,7 @@ export default function RegulationEditPanel({ regulation, businessUnits, onClose
               ))}
             </div>
             {!form.addToRoadmapDashboard && original.addToRoadmapDashboard && (
-              <p className="mt-1 text-xs text-status-pending-text">
+              <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">
                 Saving with &ldquo;No&rdquo; takes this regulation off the Roadmap, calendar and Dashboard.
               </p>
             )}
@@ -320,8 +327,8 @@ export default function RegulationEditPanel({ regulation, businessUnits, onClose
 
         <footer className="px-5 py-4 border-t border-border-default dark:border-border-dark space-y-3">
           {confirmingRemove ? (
-            <div role="alertdialog" aria-label="Confirm removal" className="rounded-md border border-status-action-border bg-status-action-bg px-3 py-2.5 space-y-2">
-              <p className="text-body text-status-action-text">
+            <div role="group" aria-labelledby={confirmId} className="rounded-md border border-status-action-border bg-status-action-bg px-3 py-2.5 space-y-2">
+              <p id={confirmId} className="text-body text-red-700">
                 Remove this regulation? It disappears from the Roadmap, calendar and Dashboard. The record and its
                 history are kept and it can be restored.
               </p>
@@ -330,6 +337,7 @@ export default function RegulationEditPanel({ regulation, businessUnits, onClose
                   type="button"
                   onClick={handleRemove}
                   disabled={saving}
+                  autoFocus
                   className="bg-status-action-text text-white rounded-md px-3 py-1.5 text-body font-medium disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal focus-visible:ring-offset-2"
                 >
                   {saving ? 'Removing...' : 'Confirm remove'}
@@ -365,7 +373,7 @@ export default function RegulationEditPanel({ regulation, businessUnits, onClose
                 type="button"
                 onClick={() => setConfirmingRemove(true)}
                 disabled={saving}
-                className="ml-auto text-body text-status-action-text hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal rounded px-1"
+                className="ml-auto text-body text-red-700 dark:text-red-400 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal rounded px-1"
               >
                 Remove regulation
               </button>

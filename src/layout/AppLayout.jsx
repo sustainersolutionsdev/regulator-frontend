@@ -12,7 +12,7 @@ const NAV_ITEMS = [
 ];
 
 function roleChipLabel(role) {
-  if (role === 'user') return 'User · edit own BU only';
+  if (role === 'user') return 'User · view tenant-wide';
   if (role === 'admin') return 'Admin';
   if (role === 'sme') return 'SME';
   return role ?? 'Unknown';
@@ -47,7 +47,7 @@ function Sidebar() {
       </div>
 
       <div className="px-4 py-3 border-b border-border-dark">
-        <div className="text-[10px] text-slate-500 uppercase tracking-widest font-semibold">Tenant</div>
+        <div className="text-[10px] text-slate-400 uppercase tracking-widest font-semibold">Tenant</div>
         <div className="text-sm text-white truncate mt-0.5">{claims?.tenantId ?? 'Loading...'}</div>
       </div>
 
@@ -76,7 +76,7 @@ function Sidebar() {
         <button
           type="button"
           onClick={logout}
-          className="text-xs text-slate-500 hover:text-white mt-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal rounded"
+          className="text-xs text-slate-400 hover:text-white mt-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal rounded"
         >
           Sign out
         </button>
@@ -109,7 +109,7 @@ function TopBar() {
         >
           {isDark ? 'Light mode' : 'Dark mode'}
         </button>
-        <span className="text-label uppercase tracking-wide text-text-secondary dark:text-slate-400 bg-surface-muted dark:bg-surface-muted-dark px-2.5 py-1 rounded-full">
+        <span className="text-label uppercase tracking-wide text-text-secondary dark:text-slate-300 bg-surface-muted dark:bg-surface-muted-dark px-2.5 py-1 rounded-full">
           {roleChipLabel(claims?.role)}
         </span>
       </div>

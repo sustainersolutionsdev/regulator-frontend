@@ -17,11 +17,11 @@ import { EMPTY_FILTERS, countActiveFilters, NOT_SET } from '../utils/regulationF
 const pillBase =
   'inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal';
 const pillIdle =
-  'bg-surface-card dark:bg-surface-card-dark border-border-default dark:border-border-dark text-text-secondary dark:text-slate-300 hover:border-brand-teal hover:text-brand-teal';
+  'bg-surface-card dark:bg-surface-card-dark border-border-default dark:border-border-dark text-text-secondary dark:text-slate-300 hover:border-brand-teal hover:text-brand-teal dark:hover:border-teal-300 dark:hover:text-teal-300';
 const pillActive = 'bg-brand-teal/10 dark:bg-brand-teal/25 border-brand-teal text-brand-teal dark:text-teal-200';
 
 const inputBase =
-  'text-body bg-surface-page dark:bg-surface-muted-dark border border-border-default dark:border-border-dark rounded-md px-3 py-1.5 text-text-primary dark:text-white placeholder:text-text-tertiary dark:placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-teal';
+  'text-body bg-surface-page dark:bg-surface-muted-dark border border-border-default dark:border-border-dark rounded-md px-3 py-1.5 text-text-primary dark:text-white placeholder:text-text-tertiary dark:placeholder:text-slate-400 dark:[color-scheme:dark] focus:outline-none focus:ring-2 focus:ring-brand-teal';
 
 function FilterMenu({ label, selectedCount, children, onClear }) {
   const [open, setOpen] = useState(false);
@@ -42,6 +42,12 @@ function FilterMenu({ label, selectedCount, children, onClear }) {
     <div
       ref={wrapRef}
       className="relative"
+      onBlur={(e) => {
+        // Close when focus moves outside this menu (e.g. Tab past the last option).
+        // relatedTarget is null for mouse clicks inside the menu (e.g. on a
+        // label), which the outside-click listener already handles.
+        if (open && e.relatedTarget && !wrapRef.current?.contains(e.relatedTarget)) setOpen(false);
+      }}
       onKeyDown={(e) => {
         if (e.key === 'Escape' && open) {
           e.stopPropagation();

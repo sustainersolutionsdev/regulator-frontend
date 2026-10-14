@@ -156,6 +156,10 @@ function RegulationChip({ reg, popoverKey, openKey, setOpenKey, buLabelByCode, a
           onEdit={
             onEdit
               ? () => {
+                  // Focus the chip first: the edit panel returns focus to
+                  // whatever was focused when it opened, and the popover
+                  // holding this Edit button is about to close.
+                  anchorRef.current?.focus();
                   setOpenKey(null);
                   onEdit(reg);
                 }
@@ -241,7 +245,9 @@ export default function MonthlyCalendar() {
   };
 
   const navButton =
-    'text-xs px-2.5 py-1.5 rounded-md border border-border-default dark:border-border-dark text-text-secondary dark:text-slate-300 hover:border-brand-teal hover:text-brand-teal disabled:opacity-40 disabled:hover:border-border-default disabled:hover:text-text-secondary disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal';
+    // aria-disabled (not disabled) keeps the button focusable at the year's
+    // edge, so keyboard focus isn't dropped to the page when Next reaches December.
+    'text-xs px-2.5 py-1.5 rounded-md border border-border-default dark:border-border-dark text-text-secondary dark:text-slate-300 hover:border-brand-teal hover:text-brand-teal dark:hover:border-teal-300 dark:hover:text-teal-300 aria-disabled:opacity-40 aria-disabled:cursor-not-allowed aria-disabled:hover:border-border-default aria-disabled:hover:text-text-secondary dark:aria-disabled:hover:border-border-dark dark:aria-disabled:hover:text-slate-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal';
 
   return (
     <div className="space-y-4 max-w-6xl">
@@ -259,8 +265,8 @@ export default function MonthlyCalendar() {
         <button
           type="button"
           className={navButton}
-          onClick={() => goToMonth(monthIndex - 1)}
-          disabled={monthIndex === 0}
+          onClick={() => monthIndex > 0 && goToMonth(monthIndex - 1)}
+          aria-disabled={monthIndex === 0}
           aria-label="Previous month"
         >
           &larr; Prev
@@ -269,8 +275,8 @@ export default function MonthlyCalendar() {
         <button
           type="button"
           className={navButton}
-          onClick={() => goToMonth(monthIndex + 1)}
-          disabled={monthIndex === 11}
+          onClick={() => monthIndex < 11 && goToMonth(monthIndex + 1)}
+          aria-disabled={monthIndex === 11}
           aria-label="Next month"
         >
           Next &rarr;
