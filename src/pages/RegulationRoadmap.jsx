@@ -123,7 +123,7 @@ function RoadmapRow({ reg, rowIndex, years, todayPosition, isActive, onActivate,
               type="button"
               onClick={onEdit}
               aria-label={`Edit ${reg.title}`}
-              className="flex-none text-xs px-1.5 py-0.5 rounded border border-border-default dark:border-border-dark text-text-secondary dark:text-slate-300 hover:border-brand-teal hover:text-brand-teal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal"
+              className="flex-none text-xs px-1.5 py-0.5 rounded border border-border-default dark:border-border-dark text-text-secondary dark:text-slate-300 hover:border-brand-teal hover:text-brand-teal dark:hover:border-teal-300 dark:hover:text-teal-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal"
             >
               Edit
             </button>
@@ -314,7 +314,7 @@ export default function RegulationRoadmap() {
                   'text-xs px-3 py-1.5 rounded-full border font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal',
                   years === n
                     ? 'bg-brand-teal text-white border-brand-teal'
-                    : 'bg-surface-card dark:bg-surface-card-dark border-border-default dark:border-border-dark text-text-secondary dark:text-slate-300 hover:border-brand-teal hover:text-brand-teal',
+                    : 'bg-surface-card dark:bg-surface-card-dark border-border-default dark:border-border-dark text-text-secondary dark:text-slate-300 hover:border-brand-teal hover:text-brand-teal dark:hover:border-teal-300 dark:hover:text-teal-300',
                 ].join(' ')}
               >
                 {n} yrs
@@ -328,7 +328,7 @@ export default function RegulationRoadmap() {
             type="button"
             onClick={() => setStartYear((y) => y - 1)}
             aria-label="Show one year earlier"
-            className="text-xs px-2.5 py-1.5 rounded-md border border-border-default dark:border-border-dark text-text-secondary dark:text-slate-300 hover:border-brand-teal hover:text-brand-teal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal"
+            className="text-xs px-2.5 py-1.5 rounded-md border border-border-default dark:border-border-dark text-text-secondary dark:text-slate-300 hover:border-brand-teal hover:text-brand-teal dark:hover:border-teal-300 dark:hover:text-teal-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal"
           >
             &larr; Earlier
           </button>
@@ -339,7 +339,7 @@ export default function RegulationRoadmap() {
             type="button"
             onClick={() => setStartYear((y) => y + 1)}
             aria-label="Show one year later"
-            className="text-xs px-2.5 py-1.5 rounded-md border border-border-default dark:border-border-dark text-text-secondary dark:text-slate-300 hover:border-brand-teal hover:text-brand-teal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal"
+            className="text-xs px-2.5 py-1.5 rounded-md border border-border-default dark:border-border-dark text-text-secondary dark:text-slate-300 hover:border-brand-teal hover:text-brand-teal dark:hover:border-teal-300 dark:hover:text-teal-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal"
           >
             Later &rarr;
           </button>
