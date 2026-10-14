@@ -6,6 +6,7 @@ import { fetchBusinessUnits } from '../api/businessUnitsApi';
 import ErrorBanner from '../components/ErrorBanner';
 import RegulationFilterBar from '../components/RegulationFilterBar';
 import RoadmapViewSwitch from '../components/RoadmapViewSwitch';
+import RegulationEditPanel from '../components/RegulationEditPanel';
 import {
   applyFilters,
   businessUnitOptions,
@@ -38,7 +39,10 @@ import {
  *    then; nothing is coloured red/amber/green without a real status.
  *  - Bars with a start and end. Srinivas's Add Regulation form has a single
  *    Due Date, so each regulation is a point on the timeline at that date.
- *  - Editing from the Roadmap (T014).
+ *
+ * Editing (T014, FR-1.4): Admin and SME get an Edit button on each row that
+ * opens RegulationEditPanel (edit fields, or remove). Users get no edit
+ * controls here - per Srinivas (Oct 13 2026) they update on the Dashboard only.
  *
  * The monthly calendar (T013, FR-1.3) is a separate screen at
  * /roadmap/calendar, reached through RoadmapViewSwitch.
@@ -100,7 +104,7 @@ function RoadmapTooltip({ id, reg, buLabelByCode, align, below }) {
   );
 }
 
-function RoadmapRow({ reg, rowIndex, years, todayPosition, isActive, onActivate, onDeactivate, onToggle, buLabelByCode }) {
+function RoadmapRow({ reg, rowIndex, years, todayPosition, isActive, onActivate, onDeactivate, onToggle, buLabelByCode, onEdit }) {
   const name = displayName(reg);
   const hasAbbreviation = name !== reg.title;
   const align = markerAlign(reg.position);
@@ -110,9 +114,21 @@ function RoadmapRow({ reg, rowIndex, years, todayPosition, isActive, onActivate,
   return (
     <li className="flex items-stretch border-t border-border-default dark:border-border-dark">
       <div className="w-36 sm:w-56 flex-none px-3 py-2.5 border-r border-border-default dark:border-border-dark">
-        <p className="text-body font-semibold text-text-primary dark:text-white truncate" title={reg.title}>
-          {name}
-        </p>
+        <div className="flex items-center gap-1.5">
+          <p className="flex-1 min-w-0 text-body font-semibold text-text-primary dark:text-white truncate" title={reg.title}>
+            {name}
+          </p>
+          {onEdit && (
+            <button
+              type="button"
+              onClick={onEdit}
+              aria-label={`Edit ${reg.title}`}
+              className="flex-none text-xs px-1.5 py-0.5 rounded border border-border-default dark:border-border-dark text-text-secondary dark:text-slate-300 hover:border-brand-teal hover:text-brand-teal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal"
+            >
+              Edit
+            </button>
+          )}
+        </div>
         {hasAbbreviation && (
           <p className="text-xs text-text-secondary dark:text-slate-400 truncate" title={reg.title}>
             {reg.title}
@@ -186,7 +202,8 @@ function RoadmapRow({ reg, rowIndex, years, todayPosition, isActive, onActivate,
 }
 
 export default function RegulationRoadmap() {
-  const { idToken } = useAuth();
+  const { idToken, claims } = useAuth();
+  const canEdit = claims?.role === 'admin' || claims?.role === 'sme';
   const thisYear = new Date().getFullYear();
 
   const [regulations, setRegulations] = useState([]);
@@ -198,6 +215,9 @@ export default function RegulationRoadmap() {
   const [startYear, setStartYear] = useState(thisYear);
   const [hoverId, setHoverId] = useState(null);
   const [pinnedId, setPinnedId] = useState(null);
+  const [editing, setEditing] = useState(null);
+  // Bumping this re-runs the load effect after an edit or removal.
+  const [reloadKey, setReloadKey] = useState(0);
 
   const [searchParams, setSearchParams] = useSearchParams();
   const filters = useMemo(() => filtersFromSearchParams(searchParams), [searchParams]);
@@ -229,7 +249,7 @@ export default function RegulationRoadmap() {
     return () => {
       cancelled = true;
     };
-  }, [idToken]);
+  }, [idToken, reloadKey]);
 
   const buLabelByCode = useMemo(
     () => Object.fromEntries(businessUnits.map((bu) => [bu.code, bu.label])),
@@ -408,6 +428,7 @@ export default function RegulationRoadmap() {
                         setPinnedId((id) => (id === reg.id ? null : id));
                       }}
                       onToggle={() => setPinnedId((id) => (id === reg.id ? null : reg.id))}
+                      onEdit={canEdit ? () => setEditing(reg) : undefined}
                     />
                   ))}
                 </ul>
@@ -435,6 +456,18 @@ export default function RegulationRoadmap() {
           </div>
         )}
       </section>
+
+      {editing && (
+        <RegulationEditPanel
+          regulation={editing}
+          businessUnits={businessUnits}
+          onClose={() => setEditing(null)}
+          onSaved={() => {
+            setEditing(null);
+            setReloadKey((k) => k + 1);
+          }}
+        />
+      )}
     </div>
   );
 }
