@@ -11,17 +11,21 @@
  *   business units                     -> multi-select
  *   due date                           -> from / to range
  *   documents                          -> with / without
+ * plus Status (T018): compliant / pending / action needed / not set. The
+ * text search also covers the status explanation.
  * "Add to Roadmap and Dashboard" is not a filter: it decides whether a
- * regulation is on these screens at all. Status joins with T018.
+ * regulation is on these screens at all.
  *
  * Filters live in the URL (?domain=Batteries&bu=BU1...) so a filtered view
  * survives a reload, works with Back, and can be shared as a link.
  */
+import { STATUS_VALUES, isKnownStatus, statusLabel } from '../constants/status';
 
-export const NOT_SET = '__none__'; // option for a blank Country / Region
+export const NOT_SET = '__none__'; // option for a blank Country / Region / Status
 
 export const EMPTY_FILTERS = Object.freeze({
   q: '',
+  status: [],
   domain: [],
   bu: [],
   country: [],
@@ -31,7 +35,7 @@ export const EMPTY_FILTERS = Object.freeze({
   docs: '', // '' = any, 'with', 'without'
 });
 
-const MULTI_KEYS = ['domain', 'bu', 'country', 'region'];
+const MULTI_KEYS = ['status', 'domain', 'bu', 'country', 'region'];
 const SINGLE_KEYS = ['q', 'dueFrom', 'dueTo', 'docs'];
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -47,7 +51,7 @@ export function filtersFromSearchParams(params) {
 
 /**
  * Writes filters into `params` (a URLSearchParams), leaving any non-filter
- * params (e.g. a future ?view=) untouched.
+ * params (e.g. the Dashboard's ?sort=) untouched.
  */
 export function writeFiltersToSearchParams(filters, params) {
   const next = new URLSearchParams(params);
@@ -76,14 +80,24 @@ function matchesMulti(selected, value) {
   return selected.includes(v === '' ? NOT_SET : v);
 }
 
+/** Anything that is not one of the three statuses counts as "Not set". */
+function statusKey(reg) {
+  const v = norm(reg.status);
+  return isKnownStatus(v) ? v : NOT_SET;
+}
+
 export function applyFilters(regulations, filters) {
   const q = filters.q.trim().toLowerCase();
 
   return regulations.filter((reg) => {
     if (q) {
-      const haystack = [reg.title, reg.abbreviatedTitle, reg.notes].map(norm).join(' ').toLowerCase();
+      const haystack = [reg.title, reg.abbreviatedTitle, reg.notes, reg.statusNote]
+        .map(norm)
+        .join(' ')
+        .toLowerCase();
       if (!haystack.includes(q)) return false;
     }
+    if (filters.status.length && !filters.status.includes(statusKey(reg))) return false;
     if (!matchesMulti(filters.domain, reg.domain)) return false;
     if (!matchesMulti(filters.country, reg.country)) return false;
     if (!matchesMulti(filters.region, reg.region)) return false;
@@ -121,6 +135,22 @@ export function distinctOptions(regulations, field) {
     .map(([value, count]) => ({ value, label: value, count }));
   if (blank) options.push({ value: NOT_SET, label: 'Not specified', count: blank });
   return options;
+}
+
+/** Status options in urgency order (Action needed first), "Not set" last. */
+export function statusOptions(regulations) {
+  const counts = new Map();
+  for (const reg of regulations) {
+    const key = statusKey(reg);
+    counts.set(key, (counts.get(key) || 0) + 1);
+  }
+  return [...STATUS_VALUES, NOT_SET]
+    .filter((key) => counts.has(key))
+    .map((key) => ({
+      value: key,
+      label: key === NOT_SET ? 'Not set' : statusLabel(key),
+      count: counts.get(key),
+    }));
 }
 
 export function businessUnitOptions(regulations, businessUnits) {

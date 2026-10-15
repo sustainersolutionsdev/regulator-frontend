@@ -2,7 +2,9 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { updateRegulation, removeRegulation, RegulationApiError } from '../api/regulationsApi';
 import { DOMAIN_OPTIONS } from '../constants/domains';
+import { STATUS_VALUES, STATUS_META } from '../constants/status';
 import ErrorBanner from './ErrorBanner';
+import StatusSwatch from './StatusSwatch';
 
 /**
  * RegulationEditPanel - edit or remove one regulation (T014, FR-1.4).
@@ -10,6 +12,11 @@ import ErrorBanner from './ErrorBanner';
  * Opened from the Roadmap timeline and the monthly calendar. Admin and SME
  * only (Srinivas, Oct 13 2026); callers render the trigger for those roles
  * only, and the backend refuses everyone else with 403 regardless.
+ *
+ * T018 (FR-2.1): Status and its optional Explanation are set here by
+ * Admin/SME. Status is always a person's choice, never inferred; "Not set"
+ * clears it. The Business Unit-scoped User path for status and notes is the
+ * Dashboard row edit (T020).
  *
  * Remove is a soft delete: the regulation disappears from every screen but
  * is never erased, and the change is audited (NFR-8, NFR-2).
@@ -27,6 +34,8 @@ import ErrorBanner from './ErrorBanner';
  *   onSaved()      called after a successful save or removal
  */
 
+const STATUS_NOTE_MAX = 1000; // matches the backend limit
+
 const fieldLabel = 'block text-label uppercase text-text-tertiary dark:text-slate-300 mb-1';
 const fieldInput =
   'w-full text-body bg-surface-page dark:bg-surface-muted-dark border border-border-default dark:border-border-dark rounded-md px-3 py-2 text-text-primary dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-teal';
@@ -42,6 +51,8 @@ function initialForm(reg) {
     businessUnitIds: [...(reg.businessUnitIds || [])],
     notes: reg.notes || '',
     addToRoadmapDashboard: reg.addToRoadmapDashboard === true,
+    status: Object.prototype.hasOwnProperty.call(STATUS_META, reg.status) ? reg.status : '',
+    statusNote: reg.statusNote || '',
   };
 }
 
@@ -56,12 +67,15 @@ function changedFields(original, form) {
     region: 'region',
     notes: 'notes',
     addToRoadmapDashboard: 'add_to_roadmap_dashboard',
+    statusNote: 'status_note',
   };
   const out = {};
   for (const [key, apiKey] of Object.entries(map)) {
     const next = typeof form[key] === 'string' ? form[key].trim() : form[key];
     if (next !== original[key]) out[apiKey] = next;
   }
+  // "" in the form means "Not set", sent as null.
+  if (form.status !== original.status) out.status = form.status || null;
   const a = [...original.businessUnitIds].sort().join('|');
   const b = [...form.businessUnitIds].sort().join('|');
   if (a !== b) out.business_unit_ids = form.businessUnitIds;
@@ -74,6 +88,7 @@ export default function RegulationEditPanel({ regulation, businessUnits, onClose
   const titleId = useId();
   const confirmId = useId();
   const domainListId = useId();
+  const statusName = useId();
   const ids = {
     title: useId(),
     abbr: useId(),
@@ -82,6 +97,8 @@ export default function RegulationEditPanel({ regulation, businessUnits, onClose
     country: useId(),
     region: useId(),
     notes: useId(),
+    statusNote: useId(),
+    statusNoteHint: useId(),
   };
 
   const [original] = useState(() => initialForm(regulation));
@@ -122,6 +139,10 @@ export default function RegulationEditPanel({ regulation, businessUnits, onClose
       setError('Tag at least one Business Unit.');
       return;
     }
+    if (form.statusNote.trim().length > STATUS_NOTE_MAX) {
+      setError(`The status explanation must be ${STATUS_NOTE_MAX.toLocaleString()} characters or fewer.`);
+      return;
+    }
     if (!hasChanges) {
       onClose();
       return;
@@ -150,6 +171,7 @@ export default function RegulationEditPanel({ regulation, businessUnits, onClose
   };
 
   const docs = regulation.documents || [];
+  const statusChoices = [...STATUS_VALUES.slice().reverse(), ''];
 
   return (
     <dialog
@@ -282,6 +304,43 @@ export default function RegulationEditPanel({ regulation, businessUnits, onClose
               className={fieldInput}
             />
           </div>
+
+          <fieldset className="rounded-md border border-border-default dark:border-border-dark px-3 pt-2 pb-3">
+            <legend className="text-label uppercase text-text-tertiary dark:text-slate-300 px-1">
+              Compliance status
+            </legend>
+            <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+              {statusChoices.map((value) => (
+                <label key={value || 'not-set'} className="flex items-center gap-2 text-body text-text-primary dark:text-slate-200">
+                  <input
+                    type="radio"
+                    name={statusName}
+                    checked={form.status === value}
+                    onChange={() => set({ status: value })}
+                    className="accent-brand-teal"
+                  />
+                  <StatusSwatch status={value || null} size="sm" decorative />
+                  {value ? STATUS_META[value].label : 'Not set'}
+                </label>
+              ))}
+            </div>
+
+            <label htmlFor={ids.statusNote} className={`${fieldLabel} mt-3`}>
+              Status explanation (optional)
+            </label>
+            <textarea
+              id={ids.statusNote}
+              rows={3}
+              value={form.statusNote}
+              onChange={(e) => set({ statusNote: e.target.value })}
+              aria-describedby={ids.statusNoteHint}
+              className={fieldInput}
+            />
+            <p id={ids.statusNoteHint} className="mt-1 text-xs text-text-tertiary dark:text-slate-400">
+              Why this status was chosen. Written by you, never generated. {form.statusNote.trim().length}/
+              {STATUS_NOTE_MAX.toLocaleString()}
+            </p>
+          </fieldset>
 
           <fieldset>
             <legend className={fieldLabel}>Add to Roadmap and Dashboard</legend>

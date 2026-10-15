@@ -6,6 +6,8 @@ import { fetchBusinessUnits } from '../api/businessUnitsApi';
 import ErrorBanner from '../components/ErrorBanner';
 import RoadmapViewSwitch from '../components/RoadmapViewSwitch';
 import RegulationEditPanel from '../components/RegulationEditPanel';
+import StatusSwatch, { StatusLegend } from '../components/StatusSwatch';
+import { statusLabel } from '../constants/status';
 import { formatDueDate } from '../utils/roadmapDates';
 import {
   DAY_NAMES,
@@ -33,8 +35,8 @@ import {
  * depended on prop-types, which this repo doesn't install.
  *
  * Same data rule as the Roadmap: only regulations saved with "Add to Roadmap
- * and Dashboard" = Yes. Chips are brand teal until the Status field exists
- * (T018); nothing is coloured red/amber/green without a real status.
+ * and Dashboard" = Yes. Status (T018): each chip carries the shared
+ * StatusSwatch (colour + glyph, or a dashed ring when no status is set).
  *
  * The month lives in the URL (?month=2026-10), so Back and reload keep it.
  *
@@ -60,6 +62,7 @@ function DetailPopover({ id, reg, buLabelByCode, alignRight, onClose, anchorRef,
   const buLabels = (reg.businessUnitIds || []).map((code) => buLabelByCode[code] || code);
   const place = [reg.region, reg.country].filter(Boolean).join(', ');
   const docs = (reg.documents || []).length;
+  const statusNote = (reg.statusNote || '').trim();
 
   return (
     <div
@@ -75,6 +78,11 @@ function DetailPopover({ id, reg, buLabelByCode, alignRight, onClose, anchorRef,
     >
       <p className="text-body font-semibold text-text-primary dark:text-white leading-snug">{reg.title}</p>
       <dl className="mt-1.5 grid grid-cols-[auto_1fr] gap-x-2 gap-y-0.5 text-xs">
+        <dt className="text-text-tertiary dark:text-slate-400">Status</dt>
+        <dd className="flex items-center gap-1.5 text-text-primary dark:text-slate-200">
+          <StatusSwatch status={reg.status} size="sm" decorative />
+          {statusLabel(reg.status)}
+        </dd>
         <dt className="text-text-tertiary dark:text-slate-400">Due</dt>
         <dd className="text-text-primary dark:text-slate-200">{formatDueDate(reg.due)}</dd>
         <dt className="text-text-tertiary dark:text-slate-400">Domain</dt>
@@ -90,6 +98,12 @@ function DetailPopover({ id, reg, buLabelByCode, alignRight, onClose, anchorRef,
         <dt className="text-text-tertiary dark:text-slate-400">Documents</dt>
         <dd className="text-text-primary dark:text-slate-200">{docs || 'None'}</dd>
       </dl>
+      {statusNote && (
+        <p className="mt-2 pt-2 border-t border-border-default dark:border-border-dark text-xs text-text-secondary dark:text-slate-300 line-clamp-3">
+          <span className="font-semibold">Status explanation: </span>
+          {statusNote}
+        </p>
+      )}
       {reg.notes && (
         <p className="mt-2 pt-2 border-t border-border-default dark:border-border-dark text-xs text-text-secondary dark:text-slate-300 line-clamp-3">
           {reg.notes}
@@ -138,12 +152,13 @@ function RegulationChip({ reg, popoverKey, openKey, setOpenKey, buLabelByCode, a
         type="button"
         aria-expanded={isOpen}
         aria-controls={isOpen ? popoverId : undefined}
-        aria-label={`${reg.title}, due ${formatDueDate(reg.due)}`}
+        aria-label={`${reg.title}, due ${formatDueDate(reg.due)}, status ${statusLabel(reg.status)}`}
         title={reg.title}
         onClick={() => setOpenKey(isOpen ? null : popoverKey)}
-        className="w-full text-left truncate rounded px-2 py-1 text-xs font-medium bg-brand-teal text-white hover:bg-brand-teal/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal focus-visible:ring-offset-1 dark:focus-visible:ring-offset-surface-card-dark"
+        className="w-full flex items-center gap-1.5 text-left rounded px-1.5 py-1 text-xs font-medium bg-surface-card dark:bg-surface-card-dark text-text-primary dark:text-white border border-border-strong dark:border-border-dark hover:border-brand-teal dark:hover:border-teal-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal focus-visible:ring-offset-1 dark:focus-visible:ring-offset-surface-card-dark"
       >
-        {displayName(reg)}
+        <StatusSwatch status={reg.status} size="sm" decorative />
+        <span className="truncate">{displayName(reg)}</span>
       </button>
       {isOpen && (
         <DetailPopover
@@ -436,6 +451,10 @@ export default function MonthlyCalendar() {
                 No Roadmap regulations are due in {monthLabel}.
               </p>
             )}
+
+            <div className="px-5 py-3 border-t border-border-default dark:border-border-dark text-xs text-text-secondary dark:text-slate-400">
+              <StatusLegend />
+            </div>
           </>
         )}
       </section>
