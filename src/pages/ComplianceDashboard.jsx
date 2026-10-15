@@ -4,8 +4,19 @@ import { useAuth } from '../context/AuthContext';
 import { fetchRegulations, RegulationApiError } from '../api/regulationsApi';
 import { fetchBusinessUnits } from '../api/businessUnitsApi';
 import ErrorBanner from '../components/ErrorBanner';
+import RegulationFilterBar from '../components/RegulationFilterBar';
 import StatusSwatch, { StatusLegend } from '../components/StatusSwatch';
 import { formatDueDate, parseDueDate } from '../utils/roadmapDates';
+import {
+  EMPTY_FILTERS,
+  applyFilters,
+  businessUnitOptions,
+  countActiveFilters,
+  distinctOptions,
+  filtersFromSearchParams,
+  statusOptions,
+  writeFiltersToSearchParams,
+} from '../utils/regulationFilters';
 import {
   displayName,
   formatTimestamp,
@@ -33,14 +44,18 @@ import {
  * (DL-3). Status and its optional Explanation are set by Admin/SME - never
  * inferred or generated. A regulation nobody has rated shows "Not set".
  *
+ * Filters (T019, FR-2.2): the shared RegulationFilterBar and
+ * utils/regulationFilters, unchanged from the Roadmap - every Add Regulation
+ * field plus Status. Filters and sort share the URL (?status=...&sort=...),
+ * so a filtered, sorted view survives a reload and can be shared as a link.
+ * Filters apply before sorting; filter options come from everything on the
+ * Dashboard, so choosing one value never hides the others.
+ *
  * Deliberately NOT built here (later M2 tasks, same screen):
- *  - Filters (T019, FR-2.2) - will reuse RegulationFilterBar unchanged.
  *  - Row editing, document upload and the Business Unit-scoped User edit
  *    rule (T020, FR-2.3).
  *  - PDF / Excel download (T021, FR-2.4).
  *
- * Sort order lives in the URL (?sort=&dir=), so a sorted view survives a
- * reload and can be shared.
  */
 
 const SORTABLE = {
@@ -78,6 +93,7 @@ function SortHeader({ sortKey, sort, onSort, className = '' }) {
         onClick={() => onSort(sortKey)}
         className="inline-flex items-center gap-1 text-label uppercase text-text-secondary dark:text-slate-300 hover:text-brand-teal dark:hover:text-teal-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal rounded"
       >
+        <span className="sr-only">Sort by </span>
         {SORTABLE[sortKey]}
         <span aria-hidden="true" className={active ? 'text-brand-teal dark:text-teal-300' : 'opacity-60'}>
           {arrow}
@@ -195,6 +211,13 @@ export default function ComplianceDashboard() {
 
   const [searchParams, setSearchParams] = useSearchParams();
   const sort = useMemo(() => sortFromSearchParams(searchParams), [searchParams]);
+  const filters = useMemo(() => filtersFromSearchParams(searchParams), [searchParams]);
+  // Both writers keep each other's params, so sort survives a filter change and vice versa.
+  const setFilters = useCallback(
+    (next, { replace = false } = {}) =>
+      setSearchParams((prev) => writeFiltersToSearchParams(next, prev), { replace }),
+    [setSearchParams]
+  );
   const onSort = useCallback(
     (key) =>
       setSearchParams((prev) => writeSortToSearchParams(nextSort(sortFromSearchParams(prev), key), prev), {
@@ -236,11 +259,36 @@ export default function ComplianceDashboard() {
     [regulations]
   );
 
-  const rows = useMemo(() => sortRegulations(onDashboard, sort), [onDashboard, sort]);
+  const filterOptions = useMemo(
+    () => ({
+      status: statusOptions(onDashboard),
+      domain: distinctOptions(onDashboard, 'domain'),
+      bu: businessUnitOptions(onDashboard, businessUnits),
+      country: distinctOptions(onDashboard, 'country'),
+      region: distinctOptions(onDashboard, 'region'),
+    }),
+    [onDashboard, businessUnits]
+  );
+
+  const filtered = useMemo(() => applyFilters(onDashboard, filters), [onDashboard, filters]);
+  const filtersActive = countActiveFilters(filters) > 0;
+  const rows = useMemo(() => sortRegulations(filtered, sort), [filtered, sort]);
+  const countLabel = filtersActive
+    ? `${filtered.length} of ${onDashboard.length} match`
+    : `${onDashboard.length} on the Dashboard`;
   const sortDescription = `${SORTABLE[sort.key]}, ${sort.dir === 'asc' ? 'ascending' : 'descending'}`;
 
   return (
     <div className="space-y-4">
+      {!loading && !loadError && onDashboard.length > 0 && (
+        <RegulationFilterBar
+          filters={filters}
+          onChange={setFilters}
+          options={filterOptions}
+          resultLabel={filtersActive ? `${filtered.length} of ${onDashboard.length} match` : `${onDashboard.length} regulations`}
+        />
+      )}
+
       <section className="bg-surface-card dark:bg-surface-card-dark border border-border-default dark:border-border-dark rounded-lg">
         <div className="flex flex-wrap items-baseline justify-between gap-2 px-5 py-3 border-b border-border-default dark:border-border-dark">
           <h2 id="dashboard-table-heading" className="text-body font-semibold text-text-primary dark:text-white">
@@ -248,7 +296,7 @@ export default function ComplianceDashboard() {
           </h2>
           {!loading && !loadError && (
             <p className="text-xs text-text-secondary dark:text-slate-400">
-              {onDashboard.length} on the Dashboard &middot; sorted by {sortDescription.toLowerCase()}
+              {countLabel} &middot; sorted by {sortDescription.toLowerCase()}
             </p>
           )}
         </div>
@@ -267,7 +315,20 @@ export default function ComplianceDashboard() {
           </p>
         )}
 
-        {!loading && !loadError && onDashboard.length > 0 && (
+        {!loading && !loadError && onDashboard.length > 0 && filtered.length === 0 && (
+          <div className="p-10 text-center space-y-2">
+            <p className="text-body text-text-tertiary dark:text-slate-400">No regulations match these filters.</p>
+            <button
+              type="button"
+              onClick={() => setFilters({ ...EMPTY_FILTERS })}
+              className="text-body text-brand-teal dark:text-teal-300 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal rounded"
+            >
+              Clear all filters
+            </button>
+          </div>
+        )}
+
+        {!loading && !loadError && filtered.length > 0 && (
           <div
             className="overflow-x-auto"
             role="region"
@@ -276,7 +337,7 @@ export default function ComplianceDashboard() {
           >
             <table className="w-full min-w-[1300px] border-collapse">
               <caption className="sr-only">
-                Compliance Dashboard: {onDashboard.length} regulations, sorted by {sortDescription}. Column
+                Compliance Dashboard: {filtered.length} regulations{filtersActive ? ` matching the filters, of ${onDashboard.length}` : ''}, sorted by {sortDescription}. Column
                 headers with buttons can be used to change the sort.
               </caption>
               <thead className="bg-surface-muted dark:bg-surface-muted-dark">
