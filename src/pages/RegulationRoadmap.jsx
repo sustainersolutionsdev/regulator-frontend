@@ -7,12 +7,15 @@ import ErrorBanner from '../components/ErrorBanner';
 import RegulationFilterBar from '../components/RegulationFilterBar';
 import RoadmapViewSwitch from '../components/RoadmapViewSwitch';
 import RegulationEditPanel from '../components/RegulationEditPanel';
+import StatusSwatch, { StatusLegend } from '../components/StatusSwatch';
+import { statusLabel } from '../constants/status';
 import {
   applyFilters,
   businessUnitOptions,
   countActiveFilters,
   distinctOptions,
   filtersFromSearchParams,
+  statusOptions,
   writeFiltersToSearchParams,
 } from '../utils/regulationFilters';
 import {
@@ -33,16 +36,18 @@ import {
  * Viewing is tenant-wide for every role (FR-1.4); the backend scopes the
  * list to the caller's own tenant.
  *
+ * Status (T018): each marker is the shared StatusSwatch - the SME-set
+ * status colour with its glyph, or a dashed ring when no status is set.
+ * Nothing is coloured red/amber/green without a real, person-set status.
+ *
  * Deliberately NOT built here:
- *  - Status colours. Status does not exist on the record until the
- *    Dashboard Status field ships (T018, M2). Markers are brand teal until
- *    then; nothing is coloured red/amber/green without a real status.
  *  - Bars with a start and end. Srinivas's Add Regulation form has a single
  *    Due Date, so each regulation is a point on the timeline at that date.
  *
  * Editing (T014, FR-1.4): Admin and SME get an Edit button on each row that
- * opens RegulationEditPanel (edit fields, or remove). Users get no edit
- * controls here - per Srinivas (Oct 13 2026) they update on the Dashboard only.
+ * opens RegulationEditPanel (edit fields and status, or remove). Users get no
+ * edit controls here - per Srinivas (Oct 13 2026) they update on the
+ * Dashboard only.
  *
  * The monthly calendar (T013, FR-1.3) is a separate screen at
  * /roadmap/calendar, reached through RoadmapViewSwitch.
@@ -73,6 +78,7 @@ const TOOLTIP_ALIGN = {
 function RoadmapTooltip({ id, reg, buLabelByCode, align, below }) {
   const buLabels = (reg.businessUnitIds || []).map((code) => buLabelByCode[code] || code);
   const place = [reg.region, reg.country].filter(Boolean).join(', ');
+  const statusNote = (reg.statusNote || '').trim();
 
   return (
     <div
@@ -87,6 +93,11 @@ function RoadmapTooltip({ id, reg, buLabelByCode, align, below }) {
     >
       <p className="text-body font-semibold text-text-primary dark:text-white leading-snug">{reg.title}</p>
       <dl className="mt-1.5 grid grid-cols-[auto_1fr] gap-x-2 gap-y-0.5 text-xs">
+        <dt className="text-text-tertiary dark:text-slate-400">Status</dt>
+        <dd className="flex items-center gap-1.5 text-text-primary dark:text-slate-200">
+          <StatusSwatch status={reg.status} size="sm" decorative />
+          {statusLabel(reg.status)}
+        </dd>
         <dt className="text-text-tertiary dark:text-slate-400">Due</dt>
         <dd className="text-text-primary dark:text-slate-200">{formatDueDate(reg.due)}</dd>
         <dt className="text-text-tertiary dark:text-slate-400">Domain</dt>
@@ -100,6 +111,11 @@ function RoadmapTooltip({ id, reg, buLabelByCode, align, below }) {
         <dt className="text-text-tertiary dark:text-slate-400">Business Units</dt>
         <dd className="text-text-primary dark:text-slate-200">{buLabels.join(', ') || '-'}</dd>
       </dl>
+      {statusNote && (
+        <p className="mt-2 pt-2 border-t border-border-default dark:border-border-dark text-xs text-text-secondary dark:text-slate-300 line-clamp-3">
+          {statusNote}
+        </p>
+      )}
     </div>
   );
 }
@@ -161,7 +177,7 @@ function RoadmapRow({ reg, rowIndex, years, todayPosition, isActive, onActivate,
           <div className="relative -translate-x-1/2">
             <button
               type="button"
-              aria-label={`${reg.title}, due ${formatDueDate(reg.due)}`}
+              aria-label={`${reg.title}, due ${formatDueDate(reg.due)}, status ${statusLabel(reg.status)}`}
               aria-describedby={isActive ? tooltipId : undefined}
               aria-expanded={isActive}
               onMouseEnter={onActivate}
@@ -174,10 +190,7 @@ function RoadmapRow({ reg, rowIndex, years, todayPosition, isActive, onActivate,
               }}
               className="relative flex items-center justify-center w-6 h-6 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal focus-visible:ring-offset-2 dark:focus-visible:ring-offset-surface-card-dark"
             >
-              <span
-                aria-hidden="true"
-                className="w-3.5 h-3.5 rounded-full bg-brand-teal dark:bg-teal-400 ring-2 ring-surface-card dark:ring-surface-card-dark"
-              />
+              <StatusSwatch status={reg.status} size="md" decorative />
               <span
                 aria-hidden="true"
                 className={`absolute top-1/2 -translate-y-1/2 ${dateLabelSide} whitespace-nowrap text-[11px] text-text-secondary dark:text-slate-400`}
@@ -265,6 +278,7 @@ export default function RegulationRoadmap() {
   // so picking one Domain never hides the other Domain choices.
   const filterOptions = useMemo(
     () => ({
+      status: statusOptions(onRoadmap),
       domain: distinctOptions(onRoadmap, 'domain'),
       bu: businessUnitOptions(onRoadmap, businessUnits),
       country: distinctOptions(onRoadmap, 'country'),
@@ -439,10 +453,7 @@ export default function RegulationRoadmap() {
 
         {!loading && !loadError && onRoadmap.length > 0 && (
           <div className="flex flex-wrap items-center gap-x-5 gap-y-1 px-5 py-3 border-t border-border-default dark:border-border-dark text-xs text-text-secondary dark:text-slate-400">
-            <span className="flex items-center gap-1.5">
-              <span aria-hidden="true" className="w-2.5 h-2.5 rounded-full bg-brand-teal dark:bg-teal-400" />
-              Due date
-            </span>
+            <StatusLegend />
             {todayPosition !== null && (
               <span className="flex items-center gap-1.5">
                 <span aria-hidden="true" className="h-3 border-l border-dashed border-brand-teal dark:border-teal-300" />

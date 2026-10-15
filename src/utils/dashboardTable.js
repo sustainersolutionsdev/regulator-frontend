@@ -3,13 +3,15 @@
  * (T017, FR-2.1).
  *
  * Kept out of the page so the sorting rules can be checked on their own.
+ * T018 added the Status sort (urgency order; "Not set" always last).
  * Sort lives in the URL (?sort=due&dir=asc), next to the filter params the
  * Dashboard filters (T019) will add through utils/regulationFilters, which
  * leaves non-filter params such as these untouched.
  */
 import { parseDueDate } from './roadmapDates';
+import { STATUS_SEVERITY, isKnownStatus } from '../constants/status';
 
-export const SORT_KEYS = ['name', 'due', 'domain', 'updated'];
+export const SORT_KEYS = ['name', 'due', 'status', 'domain', 'updated'];
 export const DEFAULT_SORT = Object.freeze({ key: 'due', dir: 'asc' });
 
 export function displayName(reg) {
@@ -70,6 +72,8 @@ function compareText(a, b) {
 // Each returns a comparable value, or '' when the record has none.
 const SORT_VALUE = {
   name: (reg) => displayName(reg),
+  // T018: ascending = most urgent first (Action needed, Pending, Compliant).
+  status: (reg) => (isKnownStatus(reg.status) ? String(STATUS_SEVERITY[reg.status]) : ''),
   domain: (reg) => text(reg.domain),
   // Valid "YYYY-MM-DD" strings sort correctly as plain strings.
   due: (reg) => (parseDueDate(reg.dueDate) ? text(reg.dueDate) : ''),

@@ -1,16 +1,17 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { EMPTY_FILTERS, countActiveFilters, NOT_SET } from '../utils/regulationFilters';
+import StatusSwatch from './StatusSwatch';
 
 /**
  * RegulationFilterBar - shared filter controls for regulation lists.
  * T012 (Roadmap, FR-1.2); built to be reused unchanged by the Dashboard
- * (T019, FR-2.2).
+ * (T019, FR-2.2). T018 added the Status filter.
  *
  * Props:
  *   filters      current filter object (see utils/regulationFilters.js)
  *   onChange     called with (nextFilters, { replace }) - replace is true for
  *                keystrokes in the search box, so typing doesn't flood history
- *   options      { domain, bu, country, region } -> [{ value, label, count }]
+ *   options      { status, domain, bu, country, region } -> [{ value, label, count }]
  *   resultLabel  text for the live result count, e.g. "12 of 40 shown"
  */
 
@@ -95,7 +96,7 @@ function FilterMenu({ label, selectedCount, children, onClear }) {
   );
 }
 
-function CheckboxList({ legend, options, selected, onToggle }) {
+function CheckboxList({ legend, options, selected, onToggle, withStatusSwatch = false }) {
   if (!options.length) {
     return <p className="text-xs text-text-tertiary dark:text-slate-400">No values in use yet.</p>;
   }
@@ -112,6 +113,9 @@ function CheckboxList({ legend, options, selected, onToggle }) {
                 onChange={() => onToggle(opt.value)}
                 className="accent-brand-teal focus-visible:ring-2 focus-visible:ring-brand-teal"
               />
+              {withStatusSwatch && (
+                <StatusSwatch status={opt.value === NOT_SET ? null : opt.value} size="sm" decorative />
+              )}
               <span className={`flex-1 truncate ${opt.value === NOT_SET ? 'italic' : ''}`}>{opt.label}</span>
               <span className="text-xs text-text-tertiary dark:text-slate-400">{opt.count}</span>
             </label>
@@ -123,6 +127,7 @@ function CheckboxList({ legend, options, selected, onToggle }) {
 }
 
 const MULTI_FILTERS = [
+  { key: 'status', label: 'Status' },
   { key: 'domain', label: 'Domain' },
   { key: 'bu', label: 'Business Unit' },
   { key: 'country', label: 'Country' },
@@ -152,7 +157,7 @@ export default function RegulationFilterBar({ filters, onChange, options, result
         <span className="text-label uppercase text-text-tertiary dark:text-slate-300 mr-1">Filters</span>
 
         <label htmlFor={searchId} className="sr-only">
-          Search title, abbreviated title or notes
+          Search title, abbreviated title, notes or status explanation
         </label>
         <input
           id={searchId}
@@ -175,6 +180,7 @@ export default function RegulationFilterBar({ filters, onChange, options, result
               options={options[key] || []}
               selected={filters[key]}
               onToggle={(value) => toggle(key, value)}
+              withStatusSwatch={key === 'status'}
             />
           </FilterMenu>
         ))}
