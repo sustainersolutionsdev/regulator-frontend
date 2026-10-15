@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 
 const NAV_ITEMS = [
   { path: '/roadmap', label: 'Roadmap', title: 'Regulation Roadmap' },
-  { path: '/dashboard', label: 'Dashboard' },
+  { path: '/dashboard', label: 'Dashboard', title: 'Compliance Dashboard' },
   { path: '/ai-insights', label: 'AI Insights' },
   { path: '/add-regulation', label: 'Add Regulation' },
   { path: '/directory', label: 'Users / Directory' },
