@@ -5,7 +5,8 @@ import StatusSwatch from './StatusSwatch';
 /**
  * RegulationFilterBar - shared filter controls for regulation lists.
  * T012 (Roadmap, FR-1.2); built to be reused unchanged by the Dashboard
- * (T019, FR-2.2). T018 added the Status filter.
+ * (T019, FR-2.2). T018 added the Status filter; T020 made it optional
+ * (showStatus) because the Roadmap and calendar show no status (DL-8).
  *
  * Props:
  *   filters      current filter object (see utils/regulationFilters.js)
@@ -13,6 +14,7 @@ import StatusSwatch from './StatusSwatch';
  *                keystrokes in the search box, so typing doesn't flood history
  *   options      { status, domain, bu, country, region } -> [{ value, label, count }]
  *   resultLabel  text for the live result count, e.g. "12 of 40 shown"
+ *   showStatus   include the Status filter (default true; the Roadmap passes false)
  */
 
 const pillBase =
@@ -134,7 +136,7 @@ const MULTI_FILTERS = [
   { key: 'region', label: 'Region' },
 ];
 
-export default function RegulationFilterBar({ filters, onChange, options, resultLabel }) {
+export default function RegulationFilterBar({ filters, onChange, options, resultLabel, showStatus = true }) {
   const searchId = useId();
   const fromId = useId();
   const toId = useId();
@@ -168,7 +170,7 @@ export default function RegulationFilterBar({ filters, onChange, options, result
           className={`${inputBase} w-56`}
         />
 
-        {MULTI_FILTERS.map(({ key, label }) => (
+        {MULTI_FILTERS.filter(({ key }) => showStatus || key !== 'status').map(({ key, label }) => (
           <FilterMenu
             key={key}
             label={label}

@@ -11,8 +11,15 @@
  *   business units                     -> multi-select
  *   due date                           -> from / to range
  *   documents                          -> with / without
- * plus Status (T018): compliant / pending / action needed / not set. The
- * text search also covers the status explanation.
+ * plus Status: compliant / pending / action needed / not set. Status is per
+ * Business Unit (DL-8, T020), so it is matched per unit:
+ *   - a "unit row" (Dashboard, By Business Unit view: has `rowBu`) matches on
+ *     its own unit's status;
+ *   - a regulation row matches if ANY of its units has a selected status -
+ *     only the units in the Business Unit filter, when that filter is set.
+ * Business Unit filter on a unit row matches the row's own unit. The text
+ * search also covers the status explanations.
+ * The Roadmap shows no status (DL-8) and passes no status filter.
  * "Add to Roadmap and Dashboard" is not a filter: it decides whether a
  * regulation is on these screens at all.
  *
@@ -80,10 +87,23 @@ function matchesMulti(selected, value) {
   return selected.includes(v === '' ? NOT_SET : v);
 }
 
-/** Anything that is not one of the three statuses counts as "Not set". */
-function statusKey(reg) {
-  const v = norm(reg.status);
+/** One unit's status key; anything that isn't a real status is "Not set". */
+export function unitStatusKey(reg, bu) {
+  const v = norm(((reg.buStatuses || {})[bu] || {}).status);
   return isKnownStatus(v) ? v : NOT_SET;
+}
+
+/** The units whose status counts for this row under the current BU filter. */
+function unitsInScope(reg, buFilter) {
+  if (reg.rowBu) return [reg.rowBu];
+  const units = reg.businessUnitIds || [];
+  return buFilter.length ? units.filter((bu) => buFilter.includes(bu)) : units;
+}
+
+function unitNotes(reg) {
+  const statuses = reg.buStatuses || {};
+  const units = reg.rowBu ? [reg.rowBu] : Object.keys(statuses);
+  return units.map((bu) => (statuses[bu] || {}).note);
 }
 
 export function applyFilters(regulations, filters) {
@@ -91,25 +111,28 @@ export function applyFilters(regulations, filters) {
 
   return regulations.filter((reg) => {
     if (q) {
-      const haystack = [reg.title, reg.abbreviatedTitle, reg.notes, reg.statusNote]
+      const haystack = [reg.title, reg.abbreviatedTitle, reg.notes, ...unitNotes(reg)]
         .map(norm)
         .join(' ')
         .toLowerCase();
       if (!haystack.includes(q)) return false;
     }
-    if (filters.status.length && !filters.status.includes(statusKey(reg))) return false;
+    if (filters.status.length) {
+      const keys = unitsInScope(reg, filters.bu).map((bu) => unitStatusKey(reg, bu));
+      if (!keys.some((k) => filters.status.includes(k))) return false;
+    }
     if (!matchesMulti(filters.domain, reg.domain)) return false;
     if (!matchesMulti(filters.country, reg.country)) return false;
     if (!matchesMulti(filters.region, reg.region)) return false;
     if (filters.bu.length) {
-      const regBus = reg.businessUnitIds || [];
+      const regBus = reg.rowBu ? [reg.rowBu] : reg.businessUnitIds || [];
       if (!filters.bu.some((code) => regBus.includes(code))) return false;
     }
     // Due dates are "YYYY-MM-DD", so string comparison is date order.
     const due = norm(reg.dueDate);
     if (filters.dueFrom && (!due || due < filters.dueFrom)) return false;
     if (filters.dueTo && (!due || due > filters.dueTo)) return false;
-    const hasDocs = (reg.documents || []).length > 0;
+    const hasDocs = (reg.documents || []).some((d) => !d.hidden);
     if (filters.docs === 'with' && !hasDocs) return false;
     if (filters.docs === 'without' && hasDocs) return false;
     return true;
@@ -137,12 +160,18 @@ export function distinctOptions(regulations, field) {
   return options;
 }
 
-/** Status options in urgency order (Action needed first), "Not set" last. */
+/**
+ * Status options in urgency order (Action needed first), "Not set" last.
+ * Counted per unit (a regulation shared by two units counts once for each
+ * unit's status), so the numbers read as "how many unit statuses".
+ */
 export function statusOptions(regulations) {
   const counts = new Map();
   for (const reg of regulations) {
-    const key = statusKey(reg);
-    counts.set(key, (counts.get(key) || 0) + 1);
+    for (const bu of unitsInScope(reg, [])) {
+      const key = unitStatusKey(reg, bu);
+      counts.set(key, (counts.get(key) || 0) + 1);
+    }
   }
   return [...STATUS_VALUES, NOT_SET]
     .filter((key) => counts.has(key))
@@ -156,7 +185,9 @@ export function statusOptions(regulations) {
 export function businessUnitOptions(regulations, businessUnits) {
   const counts = new Map();
   for (const reg of regulations) {
-    for (const code of reg.businessUnitIds || []) counts.set(code, (counts.get(code) || 0) + 1);
+    for (const code of reg.rowBu ? [reg.rowBu] : reg.businessUnitIds || []) {
+      counts.set(code, (counts.get(code) || 0) + 1);
+    }
   }
   const labelByCode = Object.fromEntries(businessUnits.map((bu) => [bu.code, bu.label]));
   return [...counts.entries()]
