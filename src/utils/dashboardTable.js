@@ -4,6 +4,12 @@
  *
  * Kept out of the page so the sorting rules can be checked on their own.
  * T018 added the Status sort (urgency order; "Not set" always last).
+ * T020 (DL-8): status is per Business Unit, and the Dashboard has two views,
+ *   - "regulation": one row per regulation;
+ *   - "bu": one row per regulation per Business Unit (unitRows), each row
+ *     carrying `rowBu`.
+ * Status sort: a unit row sorts on its own status; a regulation row on its
+ * most urgent unit (never shown as a colour - only used for ordering).
  * Sort lives in the URL (?sort=due&dir=asc), next to the filter params the
  * Dashboard filters (T019) will add through utils/regulationFilters, which
  * leaves non-filter params such as these untouched.
@@ -11,7 +17,44 @@
 import { parseDueDate } from './roadmapDates';
 import { STATUS_SEVERITY, isKnownStatus } from '../constants/status';
 
-export const SORT_KEYS = ['name', 'due', 'status', 'domain', 'updated'];
+export const VIEWS = ['regulation', 'bu'];
+export const DEFAULT_VIEW = 'regulation';
+
+export function viewFromSearchParams(params) {
+  const v = params.get('view');
+  return VIEWS.includes(v) ? v : DEFAULT_VIEW;
+}
+
+/** Writes the view into a copy of `params`; the default view leaves the URL clean. */
+export function writeViewToSearchParams(view, params) {
+  const next = new URLSearchParams(params);
+  if (view === DEFAULT_VIEW) next.delete('view');
+  else next.set('view', view);
+  return next;
+}
+
+/** One row per regulation per Business Unit, for the By Business Unit view. */
+export function unitRows(regulations) {
+  const rows = [];
+  for (const reg of regulations) {
+    for (const bu of reg.businessUnitIds || []) {
+      rows.push({ ...reg, rowBu: bu, rowKey: `${reg.id}:${bu}` });
+    }
+  }
+  return rows;
+}
+
+/** The status entry for one unit ({} when none has been set). */
+export function unitEntry(reg, bu) {
+  return ((reg.buStatuses || {})[bu]) || {};
+}
+
+/** Supporting documents that apply to one unit: its own, plus regulation-wide ones (no buCode). */
+export function visibleDocuments(reg, bu = null) {
+  return (reg.documents || []).filter((d) => !d.hidden && (!bu || !d.buCode || d.buCode === bu));
+}
+
+export const SORT_KEYS = ['name', 'unit', 'due', 'status', 'domain', 'updated'];
 export const DEFAULT_SORT = Object.freeze({ key: 'due', dir: 'asc' });
 
 export function displayName(reg) {
@@ -72,13 +115,22 @@ function compareText(a, b) {
 // Each returns a comparable value, or '' when the record has none.
 const SORT_VALUE = {
   name: (reg) => displayName(reg),
-  // T018: ascending = most urgent first (Action needed, Pending, Compliant).
-  status: (reg) => (isKnownStatus(reg.status) ? String(STATUS_SEVERITY[reg.status]) : ''),
+  unit: (reg) => text(reg.rowBu),
+  // Ascending = most urgent first (Action needed, Pending, Compliant).
+  status: (reg) => {
+    const units = reg.rowBu ? [reg.rowBu] : reg.businessUnitIds || [];
+    const ranks = units
+      .map((bu) => unitEntry(reg, bu).status)
+      .filter(isKnownStatus)
+      .map((st) => STATUS_SEVERITY[st]);
+    return ranks.length ? String(Math.min(...ranks)) : '';
+  },
   domain: (reg) => text(reg.domain),
   // Valid "YYYY-MM-DD" strings sort correctly as plain strings.
   due: (reg) => (parseDueDate(reg.dueDate) ? text(reg.dueDate) : ''),
   updated: (reg) => {
-    const date = parseTimestamp(reg.lastUpdated || reg.createdAt);
+    const stamp = reg.rowBu ? unitEntry(reg, reg.rowBu).updatedAt : null;
+    const date = parseTimestamp(stamp || reg.lastUpdated || reg.createdAt);
     return date ? date.toISOString() : '';
   },
 };
@@ -91,7 +143,7 @@ const SORT_VALUE = {
 export function sortRegulations(regulations, sort) {
   const valueOf = SORT_VALUE[sort.key] || SORT_VALUE[DEFAULT_SORT.key];
   const sign = sort.dir === 'desc' ? -1 : 1;
-  const textual = sort.key === 'name' || sort.key === 'domain';
+  const textual = sort.key === 'name' || sort.key === 'domain' || sort.key === 'unit';
 
   return [...regulations].sort((a, b) => {
     const va = valueOf(a);
@@ -106,7 +158,7 @@ export function sortRegulations(regulations, sort) {
     return (
       primary * sign ||
       compareText(displayName(a), displayName(b)) ||
-      String(a.id).localeCompare(String(b.id))
+      String(a.rowKey || a.id).localeCompare(String(b.rowKey || b.id))
     );
   });
 }
