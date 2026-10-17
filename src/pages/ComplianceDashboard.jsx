@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { fetchRegulations, RegulationApiError } from '../api/regulationsApi';
 import { fetchBusinessUnits } from '../api/businessUnitsApi';
 import { fetchDashboardView, saveDashboardView } from '../api/preferencesApi';
+import DownloadMenu from '../components/DownloadMenu';
 import ErrorBanner from '../components/ErrorBanner';
 import RegulationFilterBar from '../components/RegulationFilterBar';
 import StatusSwatch, { StatusLegend } from '../components/StatusSwatch';
@@ -33,6 +34,10 @@ import {
   writeSortToSearchParams,
   writeViewToSearchParams,
 } from '../utils/dashboardTable';
+import { buildExportModel, exportFileName } from '../utils/dashboardExport';
+import { buildDashboardExcel } from '../utils/exportExcel';
+import { buildDashboardPdf } from '../utils/exportPdf';
+import { saveBlob } from '../utils/saveBlob';
 
 /**
  * ComplianceDashboard - Screen 7 (T017 table, T018 status, T019 filters,
@@ -64,7 +69,10 @@ import {
  * edit their own units' status, explanation and documents only, and see
  * other units read-only with an on-screen message (FR-2.3).
  *
- * Not built here: PDF / Excel download (T021, FR-2.4).
+ * Download (T021, FR-2.4): every role can download what is on screen -
+ * same view, filters and sort - as a PDF or an Excel file. Built in the
+ * browser from the rows already loaded (utils/dashboardExport.js); nothing
+ * extra is fetched.
  */
 
 const SORTABLE = {
@@ -245,7 +253,7 @@ function UnitStatusList({ reg, buLabelByCode }) {
 }
 
 export default function ComplianceDashboard() {
-  const { idToken, claims } = useAuth();
+  const { idToken, claims, user } = useAuth();
   const isAdminOrSme = claims?.role === 'admin' || claims?.role === 'sme';
   const myUnits = claims?.businessUnitIds || [];
 
@@ -379,6 +387,24 @@ export default function ComplianceDashboard() {
   const countLabel = filtersActive ? `${filtered.length} of ${allRows.length} ${noun} match` : `${allRows.length} ${noun}`;
   const sortDescription = `${SORTABLE[sort.key]}, ${sort.dir === 'asc' ? 'ascending' : 'descending'}`;
 
+  const onDownload = useCallback(
+    async (format) => {
+      const model = buildExportModel({
+        rows,
+        view,
+        businessUnits,
+        filters,
+        filterOptions,
+        sortLabel: sortDescription,
+        generatedBy: user?.email || '',
+        totalCount: allRows.length,
+      });
+      const blob = format === 'pdf' ? await buildDashboardPdf(model) : await buildDashboardExcel(model);
+      saveBlob(blob, exportFileName(format, model.generatedAt));
+    },
+    [rows, view, businessUnits, filters, filterOptions, sortDescription, user, allRows.length]
+  );
+
   const canEditAny = (reg) => isAdminOrSme || (reg.businessUnitIds || []).some((bu) => myUnits.includes(bu));
   const editingReg = editing ? onDashboard.find((r) => r.id === editing.id) : null;
 
@@ -406,9 +432,12 @@ export default function ComplianceDashboard() {
             {view === 'bu' ? 'Regulations by Business Unit' : 'Regulations'}
           </h2>
           {!loading && !loadError && (
-            <p className="text-xs text-text-secondary dark:text-slate-400">
-              {countLabel} &middot; sorted by {sortDescription.toLowerCase()}
-            </p>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+              <p className="text-xs text-text-secondary dark:text-slate-400">
+                {countLabel} &middot; sorted by {sortDescription.toLowerCase()}
+              </p>
+              <DownloadMenu disabled={filtered.length === 0} onDownload={onDownload} summary={countLabel} />
+            </div>
           )}
         </div>
 
