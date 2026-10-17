@@ -114,7 +114,7 @@ export default function DownloadMenu({ disabled = false, onDownload, summary }) 
           role="menu"
           aria-label="Download the Dashboard as"
           onKeyDown={onMenuKey}
-          className="absolute right-0 top-full mt-1 z-30 w-64 py-1 rounded-md border border-border-default dark:border-border-dark bg-surface-card dark:bg-surface-card-dark shadow-lg"
+          className="absolute left-0 sm:left-auto sm:right-0 top-full mt-1 z-30 w-64 max-w-[calc(100vw-2rem)] py-1 rounded-md border border-border-default dark:border-border-dark bg-surface-card dark:bg-surface-card-dark shadow-lg"
         >
           {FORMATS.map((f, i) => (
             <li key={f.value} role="none">
@@ -129,7 +129,7 @@ export default function DownloadMenu({ disabled = false, onDownload, summary }) 
                 className="w-full text-left px-3 py-2 hover:bg-surface-muted dark:hover:bg-surface-muted-dark focus:bg-surface-muted dark:focus:bg-surface-muted-dark focus:outline-none"
               >
                 <span className="block text-xs font-semibold text-text-primary dark:text-white">{f.label}</span>
-                <span className="block text-[11px] text-text-secondary dark:text-slate-400">{f.hint}</span>
+                <span className="block text-[11px] text-text-secondary dark:text-slate-300">{f.hint}</span>
               </button>
             </li>
           ))}
