@@ -469,7 +469,15 @@ export default function ComplianceDashboard() {
         )}
 
         {!loading && !loadError && filtered.length > 0 && (
-          <div className="overflow-x-auto" role="region" aria-labelledby="dashboard-table-heading" tabIndex={0}>
+          <div
+            // relative: the sr-only text in cells is absolutely positioned; without a
+            // positioned ancestor it escapes this scroll box and widens the whole
+            // page at narrow widths and high zoom (WCAG 1.4.10, found in T022).
+            className="relative overflow-x-auto rounded-b-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-teal"
+            role="region"
+            aria-labelledby="dashboard-table-heading"
+            tabIndex={0}
+          >
             <table className="w-full min-w-[1200px] border-collapse">
               <caption className="sr-only">
                 Compliance Dashboard, {view === 'bu' ? 'one row per Business Unit of each regulation' : 'one row per regulation'}:{' '}
