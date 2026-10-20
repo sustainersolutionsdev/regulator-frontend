@@ -44,6 +44,7 @@ export default function EmailAlertsSettings() {
   }, [idToken]);
 
   const toggle = async () => {
+    if (saving) return; // see aria-disabled below
     const next = !enabled;
     setSaving(true);
     setError(null);
@@ -97,18 +98,29 @@ export default function EmailAlertsSettings() {
               aria-labelledby={labelId}
               aria-describedby={hintId}
               onClick={toggle}
-              disabled={saving}
+              // T027 (WCAG 2.4.3): aria-disabled, not disabled - a disabled button
+              // loses keyboard focus to the page while the setting saves.
+              aria-disabled={saving}
+              // T027 (WCAG 1.4.11): every state's track/border and knob is at least 3:1
+              // against its background - light off 4.76:1, light on 5.62:1,
+              // dark off 5.71:1, dark on 9.89:1 (teal-300; brand teal is 2.6:1 on
+              // the dark card). The state is also written out below the switch.
               className={[
-                'relative inline-flex h-7 w-12 flex-shrink-0 items-center rounded-full border-2 transition-colors disabled:opacity-60',
-                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal focus-visible:ring-offset-2 dark:focus-visible:ring-offset-surface-card-dark',
+                'relative inline-flex h-7 w-12 flex-shrink-0 items-center rounded-full border-2 transition-colors aria-disabled:opacity-60',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal dark:focus-visible:ring-teal-300 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-surface-card-dark',
                 enabled
-                  ? 'bg-brand-teal border-brand-teal'
-                  : 'bg-slate-300 border-slate-400 dark:bg-slate-600 dark:border-slate-500',
+                  ? 'bg-brand-teal border-brand-teal dark:bg-teal-300 dark:border-teal-300'
+                  : 'bg-white border-slate-500 dark:bg-surface-card-dark dark:border-slate-400',
               ].join(' ')}
             >
               <span
                 aria-hidden="true"
-                className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${enabled ? 'translate-x-5' : 'translate-x-0.5'}`}
+                className={[
+                  'inline-block h-5 w-5 rounded-full shadow transition-transform',
+                  enabled
+                    ? 'translate-x-5 bg-white dark:bg-brand-navy'
+                    : 'translate-x-0.5 bg-slate-500 dark:bg-slate-400',
+                ].join(' ')}
               />
             </button>
           </div>
