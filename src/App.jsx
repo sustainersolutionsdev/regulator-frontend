@@ -8,6 +8,7 @@ import AddRegulationForm from './components/AddRegulationForm';
 import RegulationRoadmap from './pages/RegulationRoadmap';
 import MonthlyCalendar from './pages/MonthlyCalendar';
 import ComplianceDashboard from './pages/ComplianceDashboard';
+import EmailAlertsSettings from './pages/EmailAlertsSettings';
 
 function SignInScreen() {
   const { login } = useAuth();
@@ -46,6 +47,9 @@ export default function App() {
   const { user, loading } = useAuth();
 
   if (loading) return <p className="p-6 text-body">Loading...</p>;
+  // Signed out: the sign-in screen shows at the same URL, so a link from an
+  // alert email (/dashboard?reg=..., /account/email-alerts) opens its page
+  // straight after sign-in (T025).
   if (!user) return <SignInScreen />;
 
   return (
@@ -58,6 +62,7 @@ export default function App() {
         <Route path="/settings" element={<BusinessUnitSetup />} />
         <Route path="/directory" element={<PeopleDirectory />} />
         <Route path="/add-regulation" element={<AddRegulationForm />} />
+        <Route path="/account/email-alerts" element={<EmailAlertsSettings />} />
       </Route>
     </Routes>
   );

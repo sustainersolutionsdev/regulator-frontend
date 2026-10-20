@@ -11,6 +11,10 @@ const NAV_ITEMS = [
   { path: '/settings', label: 'Settings', title: 'Tenant & Business Unit Setup' },
 ];
 
+// T025 (DL-9): each person's own email alert setting. Not a main nav item:
+// it is a personal setting, so it sits with Sign out at the foot of the sidebar.
+const EMAIL_ALERTS_PATH = '/account/email-alerts';
+
 function roleChipLabel(role) {
   if (role === 'user') return 'User · view tenant-wide';
   if (role === 'admin') return 'Admin';
@@ -73,6 +77,17 @@ function Sidebar() {
 
       <div className="px-4 py-3 border-t border-border-dark">
         <div className="text-xs text-slate-400 truncate">{claims?.role ? roleChipLabel(claims.role) : ''}</div>
+        <NavLink
+          to={EMAIL_ALERTS_PATH}
+          className={({ isActive }) =>
+            [
+              'block text-xs mt-1 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal rounded',
+              isActive ? 'text-white font-medium' : 'text-slate-400',
+            ].join(' ')
+          }
+        >
+          Email alerts
+        </NavLink>
         <button
           type="button"
           onClick={logout}
@@ -85,14 +100,18 @@ function Sidebar() {
   );
 }
 
+function pageTitle(pathname) {
+  if (pathname.startsWith('/roadmap/calendar')) return 'Monthly Calendar';
+  if (pathname.startsWith(EMAIL_ALERTS_PATH)) return 'Email Alerts';
+  const current = NAV_ITEMS.find((item) => pathname.startsWith(item.path));
+  return current?.title ?? current?.label ?? '';
+}
+
 function TopBar() {
   const { claims } = useAuth();
   const location = useLocation();
   const [isDark, setIsDark] = useDarkMode();
-  const current = NAV_ITEMS.find((item) => location.pathname.startsWith(item.path));
-  const title = location.pathname.startsWith('/roadmap/calendar')
-    ? 'Monthly Calendar'
-    : (current?.title ?? current?.label ?? '');
+  const title = pageTitle(location.pathname);
 
   return (
     <header
