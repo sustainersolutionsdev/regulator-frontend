@@ -73,6 +73,12 @@ import { saveBlob } from '../utils/saveBlob';
  * same view, filters and sort - as a PDF or an Excel file. Built in the
  * browser from the rows already loaded (utils/dashboardExport.js); nothing
  * extra is fetched.
+ *
+ * Link from an alert email (T025): "View in Regulator" opens
+ * /dashboard?reg=<id>. The id is read once when the page opens, that
+ * regulation's panel opens as soon as the data arrives, and `reg` is removed
+ * from the URL straight away, so it never becomes part of the saved view. If
+ * the regulation is no longer on the Dashboard, a message says so.
  */
 
 const SORTABLE = {
@@ -89,6 +95,13 @@ const SAVE_DELAY_MS = 800;
 const CELL = 'px-3 py-3 align-top text-body text-text-primary dark:text-slate-200';
 const STICKY =
   'sticky left-0 z-10 bg-surface-card dark:bg-surface-card-dark border-r border-border-default dark:border-border-dark';
+
+/** The query string without the one-off ?reg= link (T025). */
+function withoutReg(search) {
+  const params = new URLSearchParams(search);
+  params.delete('reg');
+  return params.toString();
+}
 
 function Blank({ label = 'Not specified' }) {
   return (
@@ -263,6 +276,8 @@ export default function ComplianceDashboard() {
   const [loadError, setLoadError] = useState(null);
   const [reloadKey, setReloadKey] = useState(0);
   const [editing, setEditing] = useState(null); // { id, focusBu }
+  // T025: the regulation an alert email linked to (?reg=), read once on open.
+  const [linkedRegId, setLinkedRegId] = useState(() => new URLSearchParams(window.location.search).get('reg'));
 
   const [searchParams, setSearchParams] = useSearchParams();
   const view = viewFromSearchParams(searchParams);
@@ -293,8 +308,15 @@ export default function ComplianceDashboard() {
     [setSearchParams]
   );
 
+  // T025: take the one-off ?reg= out of the URL as soon as the page opens.
+  useEffect(() => {
+    if (!searchParams.has('reg')) return;
+    setSearchParams((prev) => new URLSearchParams(withoutReg(prev.toString())), { replace: true });
+  }, [searchParams, setSearchParams]);
+
   // --- Saved view (DL-8): restore once when opened with no query string. ---
-  const [restored, setRestored] = useState(() => window.location.search.length > 1);
+  // A link with only ?reg= counts as "no query string" (T025).
+  const [restored, setRestored] = useState(() => withoutReg(window.location.search).length > 0);
   const lastSaved = useRef(null);
 
   useEffect(() => {
@@ -319,7 +341,7 @@ export default function ComplianceDashboard() {
 
   useEffect(() => {
     if (!idToken || !restored) return undefined;
-    const current = searchParams.toString();
+    const current = withoutReg(searchParams.toString());
     if (current === lastSaved.current) return undefined;
     const timer = setTimeout(() => {
       saveDashboardView(idToken, current)
@@ -406,7 +428,16 @@ export default function ComplianceDashboard() {
   );
 
   const canEditAny = (reg) => isAdminOrSme || (reg.businessUnitIds || []).some((bu) => myUnits.includes(bu));
-  const editingReg = editing ? onDashboard.find((r) => r.id === editing.id) : null;
+
+  // T025: a panel opened from a row takes precedence over the emailed link.
+  const linkedReg = linkedRegId && !loading ? onDashboard.find((r) => r.id === linkedRegId) : null;
+  const linkedMissing = Boolean(linkedRegId) && !loading && !loadError && !linkedReg;
+  const panel = editing || (linkedReg ? { id: linkedReg.id, focusBu: null } : null);
+  const editingReg = panel ? onDashboard.find((r) => r.id === panel.id) : null;
+  const closePanel = () => {
+    setEditing(null);
+    setLinkedRegId(null);
+  };
 
   return (
     <div className="space-y-4">
@@ -416,6 +447,24 @@ export default function ComplianceDashboard() {
           Status is set for each Business Unit by its own people.
         </p>
       </div>
+
+      {linkedMissing && (
+        <div className="flex flex-wrap items-start gap-3">
+          <div className="flex-1 min-w-0">
+            <ErrorBanner
+              variant="warning"
+              message="The regulation in that link isn't on the Dashboard. It may have been removed, or taken off the Roadmap and Dashboard."
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => setLinkedRegId(null)}
+            className="text-xs px-2.5 py-1.5 rounded-md border border-border-default dark:border-border-dark text-text-secondary dark:text-slate-300 hover:border-brand-teal hover:text-brand-teal dark:hover:border-teal-300 dark:hover:text-teal-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {!loading && !loadError && onDashboard.length > 0 && (
         <RegulationFilterBar
@@ -603,8 +652,8 @@ export default function ComplianceDashboard() {
         <StatusUpdatePanel
           regulation={editingReg}
           businessUnits={businessUnits}
-          focusBu={editing.focusBu}
-          onClose={() => setEditing(null)}
+          focusBu={panel.focusBu}
+          onClose={closePanel}
           onChanged={() => setReloadKey((k) => k + 1)}
         />
       )}
