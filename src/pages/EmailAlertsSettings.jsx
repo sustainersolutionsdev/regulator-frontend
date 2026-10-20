@@ -11,6 +11,9 @@ import ErrorBanner from '../components/ErrorBanner';
  * for themselves only. On by default. Every alert email links here
  * ("Turn off email alerts"), and the sidebar links here too.
  *
+ * T026: turning alerts ON also lifts a block left by the inbox's own
+ * "Unsubscribe" link (Brevo adds it to every email); the server does this.
+ *
  * The switch saves as soon as it is changed; the result is announced to
  * screen readers. A switch (role="switch", aria-checked) rather than a
  * checkbox, because the change takes effect immediately.
@@ -68,6 +71,9 @@ export default function EmailAlertsSettings() {
           <p className="text-body text-text-secondary dark:text-slate-300">
             Regulator emails everyone in your company when a regulation is added to the Roadmap and Dashboard,
             or when its main details change. Alerts are sent by email only.
+          </p>
+          <p className="text-xs text-text-secondary dark:text-slate-400">
+            Used &ldquo;Unsubscribe&rdquo; in your inbox? Turning alerts on here starts them again.
           </p>
         </div>
 
