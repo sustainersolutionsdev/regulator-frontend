@@ -6,7 +6,7 @@
  * Regulation" doc — the frozen Requirements Document's FR-0.7 had
  * drifted from this source and is superseded for this field list.
  */
-import { apiRequest, ApiError, BASE_URL } from './apiClient';
+import { apiRequest, ApiError, BASE_URL, authHeader } from './apiClient';
 
 export const RegulationApiError = ApiError;
 
@@ -46,7 +46,7 @@ export function createRegulation(idToken, {
 async function multipartRequest(path, idToken, formData) {
   const res = await fetch(`${BASE_URL}${path}`, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${idToken}` },
+    headers: { Authorization: await authHeader(idToken) },
     body: formData,
   });
   if (!res.ok) {
@@ -136,7 +136,7 @@ export function hideRegulationDocument(idToken, regulationId, key) {
 export async function downloadRegulationDocument(idToken, regulationId, doc) {
   const res = await fetch(
     `${BASE_URL}/regulations/${encodeURIComponent(regulationId)}/documents/${encodeURIComponent(doc.key)}`,
-    { headers: { Authorization: `Bearer ${idToken}` } }
+    { headers: { Authorization: await authHeader(idToken) } }
   );
   if (!res.ok) {
     const resBody = await res.json().catch(() => ({}));
