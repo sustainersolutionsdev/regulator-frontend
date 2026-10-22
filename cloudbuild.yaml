@@ -1,0 +1,21 @@
+# regulator-frontend CI: lint and build on every push to a feature/* branch.
+# Same gate as regulator-backend's cloudbuild.yaml (pytest): a red check
+# means the branch is not ready to merge.
+#
+# No secrets: the Firebase web config is read from VITE_* variables at build
+# time and is public by design (see src/lib/firebase.js). Empty values still
+# build; this check proves the code compiles, not that it signs in.
+steps:
+  - name: 'node:22'
+    entrypoint: bash
+    args:
+      - '-c'
+      - |
+        set -euo pipefail
+        node --version
+        npm ci --no-audit --no-fund
+        npm run lint
+        npm run build
+
+options:
+  logging: CLOUD_LOGGING_ONLY
