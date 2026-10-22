@@ -1,0 +1,45 @@
+# Frontend deploy to regulator-dev (OPEN-11). MANUAL: run from the
+# frontend-deploy-dev trigger, which always builds master:
+#   gcloud builds triggers run frontend-deploy-dev --branch=master
+#
+# Site: https://regulator-dev.web.app (Firebase Hosting, TAD 10.1).
+#
+# Build settings (the VITE_* Firebase web config plus VITE_API_BASE_URL) come
+# from the Secret Manager secret "regulator-frontend-env-dev", written to
+# .env.production.local for this build only. They are public once in the
+# browser bundle, but are kept out of this public repository, the same way
+# the backend keeps its keys out (T006).
+#
+# CI (lint + build on feature/*) stays in cloudbuild.yaml.
+
+steps:
+  - id: build
+    name: node:22
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        printf '%s\n' "$$FRONTEND_ENV" > .env.production.local
+        grep -q '^VITE_API_BASE_URL=https://' .env.production.local \
+          || { echo "VITE_API_BASE_URL missing from the regulator-frontend-env-dev secret"; exit 1; }
+        npm ci --no-audit --no-fund
+        npm run lint
+        npm run build
+        rm -f .env.production.local
+    secretEnv: ['FRONTEND_ENV']
+
+  - id: deploy-hosting
+    name: node:22
+    entrypoint: bash
+    args:
+      - -c
+      - npx --yes firebase-tools@15.34.1 deploy --only hosting --project "$PROJECT_ID" --non-interactive
+
+availableSecrets:
+  secretManager:
+    - versionName: projects/$PROJECT_ID/secrets/regulator-frontend-env-dev/versions/latest
+      env: FRONTEND_ENV
+
+options:
+  logging: CLOUD_LOGGING_ONLY

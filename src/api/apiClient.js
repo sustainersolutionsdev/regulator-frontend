@@ -7,7 +7,10 @@
 
 import { auth } from '../lib/firebase';
 
-const BASE_URL = 'http://localhost:8000';
+// OPEN-11: the API address comes from VITE_API_BASE_URL at build time
+// (the deployed site points at the regulator-api Cloud Run URL); local
+// development keeps working with no setting.
+const BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000').replace(/\/+$/, '');
 export { BASE_URL };
 
 /**
