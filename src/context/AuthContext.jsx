@@ -1,5 +1,10 @@
 import { createContext, useContext, useEffect, useState } from 'react';
-import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth';
+import {
+  onAuthStateChanged,
+  sendPasswordResetEmail,
+  signInWithEmailAndPassword,
+  signOut,
+} from 'firebase/auth';
 import { auth } from '../lib/firebase';
 
 const AuthContext = createContext(null);
@@ -33,9 +38,16 @@ export function AuthProvider({ children }) {
 
   const login = (email, password) => signInWithEmailAndPassword(auth, email, password);
   const logout = () => signOut(auth);
+  // T051: "Forgot password?" on the Login screen. Firebase sends its own
+  // reset email; the same kind of link new users already get from Add Users.
+  const resetPassword = (email) => sendPasswordResetEmail(auth, email);
+
+  // Note (T051): the ID token held here is the one from sign-in. API calls
+  // no longer rely on it staying fresh - apiClient.authHeader() asks Firebase
+  // for a current token on every request.
 
   return (
-    <AuthContext.Provider value={{ user, idToken, claims, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, idToken, claims, loading, login, logout, resetPassword }}>
       {children}
     </AuthContext.Provider>
   );

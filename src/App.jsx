@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 import AppLayout from './layout/AppLayout';
@@ -9,48 +8,26 @@ import RegulationRoadmap from './pages/RegulationRoadmap';
 import MonthlyCalendar from './pages/MonthlyCalendar';
 import ComplianceDashboard from './pages/ComplianceDashboard';
 import EmailAlertsSettings from './pages/EmailAlertsSettings';
-
-function SignInScreen() {
-  const { login } = useAuth();
-  const [error, setError] = useState(null);
-
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    setError(null);
-    const form = new FormData(e.target);
-    try {
-      await login(form.get('email'), form.get('password'));
-    } catch {
-      setError('Sign-in failed. Check the email and password.');
-    }
-  };
-
-  // Dev sign-in stand-in. The real Login screen (Screen 0) is T051.
-  return (
-    <div className="min-h-screen bg-surface-page flex items-center justify-center">
-      <form onSubmit={handleLogin} className="bg-surface-card border border-border-default rounded-lg p-6 w-80 space-y-3">
-        <h1 className="text-h3 text-brand-navy mb-2">Sign in</h1>
-        <input name="email" type="email" placeholder="Email" required
-          className="w-full border border-border-default rounded-md px-3 py-2 text-body" />
-        <input name="password" type="password" placeholder="Password" required
-          className="w-full border border-border-default rounded-md px-3 py-2 text-body" />
-        <button type="submit" className="w-full bg-brand-teal text-white rounded-md py-2 text-body font-medium">
-          Sign in
-        </button>
-        {error && <p className="text-status-action-text text-label">{error}</p>}
-      </form>
-    </div>
-  );
-}
+import LoginScreen, { AccountNotReady } from './pages/LoginScreen';
 
 export default function App() {
-  const { user, loading } = useAuth();
+  const { user, claims, loading, logout } = useAuth();
 
-  if (loading) return <p className="p-6 text-body">Loading...</p>;
-  // Signed out: the sign-in screen shows at the same URL, so a link from an
-  // alert email (/dashboard?reg=..., /account/email-alerts) opens its page
+  if (loading) {
+    return (
+      <p role="status" className="p-6 text-body text-text-secondary dark:text-slate-300">
+        Loading…
+      </p>
+    );
+  }
+  // Signed out: the Login screen (T051) shows at the same URL, so a link from
+  // an alert email (/dashboard?reg=..., /account/email-alerts) opens its page
   // straight after sign-in (T025).
-  if (!user) return <SignInScreen />;
+  if (!user) return <LoginScreen />;
+  // Signed in, but no company or role on the account (T051).
+  if (!claims?.tenantId || !claims?.role) {
+    return <AccountNotReady email={user.email} onSignOut={logout} />;
+  }
 
   return (
     <Routes>
