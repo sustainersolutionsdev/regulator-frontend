@@ -166,7 +166,8 @@ function UnitSection({ regulation, bu, label, canEdit, onDone }) {
               className={fieldInput}
             />
             <p id={noteHintId} className="mt-1 text-xs text-text-tertiary dark:text-slate-400">
-              Why {label} has this status. Written by you, never generated. {note.trim().length}/
+              Why {label} has this status, for example what is still needed. Written by people, never
+              generated. Only {label}&rsquo;s users and Admin/SME can change it. {note.trim().length}/
               {NOTE_MAX.toLocaleString()}
             </p>
           </div>
@@ -192,7 +193,9 @@ function UnitSection({ regulation, bu, label, canEdit, onDone }) {
               className="sr-only"
               accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt"
             />
-            <span className="text-xs text-text-tertiary dark:text-slate-400">PDF, Word, Excel, PowerPoint or text, up to 25 MB</span>
+            <span className="text-xs text-text-tertiary dark:text-slate-400">
+              PDF, Word, Excel, PowerPoint or text, up to 25 MB. Saved to this regulation for {label}.
+            </span>
           </div>
         </>
       )}
@@ -238,6 +241,10 @@ function DocumentsList({ regulation, buLabelByCode, canHide, onDone }) {
   return (
     <section aria-label="Supporting documents" className="space-y-2">
       <h3 className={fieldLabel}>Supporting documents</h3>
+      <p className="text-xs text-text-tertiary dark:text-slate-400">
+        Files attached to this regulation, stored privately for your company. Everyone in your company can
+        download them. Only Admin or SME can remove one, and a removed file is kept, not deleted.
+      </p>
       {docs.length === 0 ? (
         <p className="text-body text-text-tertiary dark:text-slate-400">None attached.</p>
       ) : (
