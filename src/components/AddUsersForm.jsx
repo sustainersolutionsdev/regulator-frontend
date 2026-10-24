@@ -70,7 +70,7 @@ export default function AddUsersForm({ onUserAdded }) {
         businessUnitIds: selectedBuIds,
         notes: notes.trim(),
       });
-      setSuccessMessage(`${email.trim()} created. Send them the reset link to set a password.`);
+      setSuccessMessage(`${email.trim()} created. Ask them to open Regulator, choose “Forgot password?” and set a password from the email they receive.`);
       setEmail('');
       setDisplayName('');
       setTitle('');
