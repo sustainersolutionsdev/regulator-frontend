@@ -14,6 +14,60 @@ const BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000').
 export { BASE_URL };
 
 /**
+ * Cold start (Oct 23). regulator-dev keeps no API server running while
+ * nobody uses it, so idle costs nothing; the first call after ~15 quiet
+ * minutes waits 10–20 s while a server starts.
+ *
+ * wakeApi(): called once when the web app opens (main.jsx). The Login screen
+ * talks to Firebase, not the API, so while someone types their password the
+ * API is already starting. /health needs no token and returns no data.
+ *
+ * timedFetch(): any API call still waiting after SLOW_AFTER_MS tells the
+ * ServerWakeNotice to say why, so a slow start never looks like a broken
+ * page. Uploads and downloads don't use it: a big file is slow for honest
+ * reasons.
+ */
+let woken = false;
+export function wakeApi() {
+  if (woken) return;
+  woken = true;
+  fetch(`${BASE_URL}/health`, { cache: 'no-store' }).catch(() => {
+    // Offline or blocked: the real calls will report it.
+  });
+}
+
+const SLOW_AFTER_MS = 4000;
+let slowCalls = 0;
+const slowListeners = new Set();
+
+function notifySlow() {
+  slowListeners.forEach((fn) => fn(slowCalls > 0));
+}
+
+export function onSlowServer(fn) {
+  slowListeners.add(fn);
+  return () => slowListeners.delete(fn);
+}
+
+export async function timedFetch(url, options) {
+  let slow = false;
+  const timer = setTimeout(() => {
+    slow = true;
+    slowCalls += 1;
+    notifySlow();
+  }, SLOW_AFTER_MS);
+  try {
+    return await fetch(url, options);
+  } finally {
+    clearTimeout(timer);
+    if (slow) {
+      slowCalls -= 1;
+      notifySlow();
+    }
+  }
+}
+
+/**
  * authHeader — T051 token-refresh fix (found Oct 11, T010).
  *
  * Screens pass the ID token they got at sign-in, which Firebase expires
@@ -54,7 +108,7 @@ export async function apiRequest(path, { method = 'GET', idToken, params, body }
     options.body = JSON.stringify(body);
   }
 
-  const res = await fetch(`${BASE_URL}${path}${query}`, options);
+  const res = await timedFetch(`${BASE_URL}${path}${query}`, options);
 
   if (!res.ok) {
     const resBody = await res.json().catch(() => ({}));
@@ -63,4 +117,4 @@ export async function apiRequest(path, { method = 'GET', idToken, params, body }
   }
 
   return res.json();
-}
+}
