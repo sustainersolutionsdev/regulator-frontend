@@ -2,9 +2,12 @@
  * Domain suggestions for regulation forms - Srinivas's confirmed 17-item
  * sustainability / EHS taxonomy (9/17), not the five company focus areas.
  *
- * Shared constant created in T014 for the edit panel. AddRegulationForm.jsx
- * still has its own copy; T050 switches it (and the Tenant Setup domains
- * field) to import from here so the lists cannot drift.
+ * The one list for the Domain field: Add Regulation and the edit panel both
+ * use it through DomainSelect (type-ahead plus "Other", Oct 24 meeting,
+ * item 2). T050's Tenant Setup domains field will import it too.
+ *
+ * Industry-standard domain names (Niranjan) are planned for the next
+ * version, not beta (Srinivas, Oct 24).
  */
 export const DOMAIN_OPTIONS = [
   'Accessibility',

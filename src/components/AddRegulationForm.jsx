@@ -3,29 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { fetchBusinessUnits } from '../api/businessUnitsApi';
 import { createRegulation, uploadRegulationDocument, RegulationApiError } from '../api/regulationsApi';
 import ErrorBanner from './ErrorBanner';
-
-// Confirmed by Srinivas (9/17), from his "Domain list" doc — a sustainability/
-// EHS topic taxonomy, NOT the five target-vertical categories used elsewhere
-// in earlier company context. This is the authoritative list for this field.
-const DOMAIN_OPTIONS = [
-  'Accessibility',
-  'Basel & Waste Classification',
-  'Batteries',
-  'Chemicals',
-  'Circular Economy',
-  'Climate',
-  'Eco Design',
-  'Ecolabels',
-  'Energy',
-  'Extended Producer Responsibility',
-  'Materials',
-  'Packaging',
-  'Product Longevity / Repair',
-  'Product Takeback',
-  'Recycling',
-  'Sustainability Transparency',
-  'Supply Chain Responsibility',
-];
+import DomainSelect from './DomainSelect';
 
 // Confirmed by Srinivas (9/17): PDF/Word/Excel/text plus PowerPoint, 25MB.
 const ALLOWED_DOCUMENT_EXTENSIONS = ['.pdf', '.docx', '.doc', '.xlsx', '.xls', '.txt', '.pptx', '.ppt'];
@@ -55,6 +33,8 @@ export default function AddRegulationForm({ onRegulationAdded }) {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState(null);
   const [lastCreated, setLastCreated] = useState(null);
+  // Bumped on reset so the Domain field also clears its "Other" choice.
+  const [formKey, setFormKey] = useState(0);
 
   const canConfigure = claims?.role === 'admin' || claims?.role === 'sme';
 
@@ -114,6 +94,7 @@ export default function AddRegulationForm({ onRegulationAdded }) {
     setNotes('');
     setAddToRoadmapDashboard(false);
     setUploadedDocs([]);
+    setFormKey((k) => k + 1);
   };
 
   const handleSubmit = async (e) => {
@@ -121,8 +102,8 @@ export default function AddRegulationForm({ onRegulationAdded }) {
     setSubmitError(null);
     setLastCreated(null);
 
-    if (!domain) {
-      setSubmitError('Select a domain.');
+    if (!domain.trim()) {
+      setSubmitError('Select a domain, or choose Other and name it.');
       return;
     }
     if (selectedBuIds.length === 0) {
@@ -136,7 +117,7 @@ export default function AddRegulationForm({ onRegulationAdded }) {
         title: title.trim(),
         abbreviatedTitle: abbreviatedTitle.trim(),
         dueDate,
-        domain,
+        domain: domain.trim(),
         country: country.trim(),
         region: region.trim(),
         businessUnitIds: selectedBuIds,
@@ -208,23 +189,7 @@ export default function AddRegulationForm({ onRegulationAdded }) {
         <label htmlFor="reg_domain" className="block text-label uppercase text-text-tertiary dark:text-slate-300 mb-1">
           Domain
         </label>
-        <input
-          id="reg_domain"
-          value={domain}
-          onChange={(e) => setDomain(e.target.value)}
-          required
-          placeholder="e.g. Batteries & EVs"
-          list="domain-suggestions"
-          className="border border-border-default dark:border-border-dark dark:bg-surface-muted-dark dark:text-white rounded-md px-3 py-2 text-body w-full focus:outline-none focus:ring-2 focus:ring-brand-teal focus:border-transparent"
-        />
-        {/* datalist keeps the five confirmed domains as suggestions without
-            forcing an exact match — a middle ground worth showing Srinivas
-            alongside the pure-dropdown and pure-free-text options. */}
-        <datalist id="domain-suggestions">
-          {DOMAIN_OPTIONS.map((d) => (
-            <option key={d} value={d} />
-          ))}
-        </datalist>
+        <DomainSelect key={formKey} id="reg_domain" value={domain} onChange={setDomain} required />
       </div>
 
       <div>
@@ -266,7 +231,7 @@ export default function AddRegulationForm({ onRegulationAdded }) {
                 onChange={() => toggleBu(bu.id)}
                 className="rounded border-border-default dark:border-border-dark focus:ring-2 focus:ring-brand-teal"
               />
-              <span className="cfr text-brand-teal">{bu.code}</span>
+              <span className="cfr text-brand-teal dark:text-teal-300">{bu.code}</span>
               <span className="text-text-secondary dark:text-slate-400">{bu.label}</span>
             </label>
           ))}

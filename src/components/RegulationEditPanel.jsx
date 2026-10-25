@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { updateRegulation, removeRegulation, RegulationApiError } from '../api/regulationsApi';
-import { DOMAIN_OPTIONS } from '../constants/domains';
+import DomainSelect from './DomainSelect';
 import ErrorBanner from './ErrorBanner';
 
 /**
@@ -78,7 +78,6 @@ export default function RegulationEditPanel({ regulation, businessUnits, onClose
   const dialogRef = useRef(null);
   const titleId = useId();
   const confirmId = useId();
-  const domainListId = useId();
   const ids = {
     title: useId(),
     abbr: useId(),
@@ -123,6 +122,10 @@ export default function RegulationEditPanel({ regulation, businessUnits, onClose
   const handleSave = async (e) => {
     e.preventDefault();
     setError(null);
+    if (!form.domain.trim()) {
+      setError('Select a domain, or choose Other and name it.');
+      return;
+    }
     if (form.businessUnitIds.length === 0) {
       setError('Tag at least one Business Unit.');
       return;
@@ -223,19 +226,7 @@ export default function RegulationEditPanel({ regulation, businessUnits, onClose
             </div>
             <div>
               <label htmlFor={ids.domain} className={fieldLabel}>Domain *</label>
-              <input
-                id={ids.domain}
-                list={domainListId}
-                value={form.domain}
-                onChange={(e) => set({ domain: e.target.value })}
-                required
-                className={fieldInput}
-              />
-              <datalist id={domainListId}>
-                {DOMAIN_OPTIONS.map((d) => (
-                  <option key={d} value={d} />
-                ))}
-              </datalist>
+              <DomainSelect id={ids.domain} value={form.domain} onChange={(domain) => set({ domain })} required />
             </div>
           </div>
 
