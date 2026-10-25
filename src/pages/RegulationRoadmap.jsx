@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { fetchRegulations, RegulationApiError } from '../api/regulationsApi';
@@ -7,6 +7,8 @@ import ErrorBanner from '../components/ErrorBanner';
 import RegulationFilterBar from '../components/RegulationFilterBar';
 import RoadmapViewSwitch from '../components/RoadmapViewSwitch';
 import RegulationEditPanel from '../components/RegulationEditPanel';
+import RegulationPopover from '../components/RegulationPopover';
+import CountryFlag from '../components/CountryFlag';
 import {
   applyFilters,
   businessUnitOptions,
@@ -46,6 +48,11 @@ import {
  * edit controls here - per Srinivas (Oct 13 2026) they update on the
  * Dashboard only.
  *
+ * Regulation pop-up (Oct 24 meeting, item 3): hovering or selecting the
+ * regulation - its name or its marker, not the month - opens
+ * RegulationPopover with all its details, its documents to download and,
+ * for Admin/SME, Edit. A country flag sits beside each name (item 9).
+ *
  * The monthly calendar (T013, FR-1.3) is a separate screen at
  * /roadmap/calendar, reached through RoadmapViewSwitch.
  *
@@ -60,66 +67,39 @@ function displayName(reg) {
   return (reg.abbreviatedTitle || '').trim() || reg.title;
 }
 
-function markerAlign(position) {
-  if (position > 75) return 'right';
-  if (position < 25) return 'left';
-  return 'center';
-}
-
-const TOOLTIP_ALIGN = {
-  left: 'left-0',
-  center: 'left-1/2 -translate-x-1/2',
-  right: 'right-0',
-};
-
-function RoadmapTooltip({ id, reg, buLabelByCode, align, below }) {
-  const buLabels = (reg.businessUnitIds || []).map((code) => buLabelByCode[code] || code);
-  const place = [reg.region, reg.country].filter(Boolean).join(', ');
-
-  return (
-    <div
-      id={id}
-      role="tooltip"
-      className={[
-        below ? 'absolute top-full mt-2' : 'absolute bottom-full mb-2',
-        'z-20 w-72 max-w-[80vw] rounded-md border px-3 py-2 text-left shadow-lg',
-        'bg-surface-card dark:bg-surface-card-dark border-border-strong dark:border-border-dark',
-        TOOLTIP_ALIGN[align],
-      ].join(' ')}
-    >
-      <p className="text-body font-semibold text-text-primary dark:text-white leading-snug">{reg.title}</p>
-      <dl className="mt-1.5 grid grid-cols-[auto_1fr] gap-x-2 gap-y-0.5 text-xs">
-        <dt className="text-text-tertiary dark:text-slate-400">Due</dt>
-        <dd className="text-text-primary dark:text-slate-200">{formatDueDate(reg.due)}</dd>
-        <dt className="text-text-tertiary dark:text-slate-400">Domain</dt>
-        <dd className="text-text-primary dark:text-slate-200">{reg.domain || '-'}</dd>
-        {place && (
-          <>
-            <dt className="text-text-tertiary dark:text-slate-400">Region</dt>
-            <dd className="text-text-primary dark:text-slate-200">{place}</dd>
-          </>
-        )}
-        <dt className="text-text-tertiary dark:text-slate-400">Business Units</dt>
-        <dd className="text-text-primary dark:text-slate-200">{buLabels.join(', ') || '-'}</dd>
-      </dl>
-    </div>
-  );
-}
-
-function RoadmapRow({ reg, rowIndex, years, todayPosition, isActive, onActivate, onDeactivate, onToggle, buLabelByCode, onEdit }) {
+function RoadmapRow({ reg, years, todayPosition, open, onHover, onLeave, onToggle, onClose, buLabelByCode, onEdit, onEditFromPopover }) {
   const name = displayName(reg);
   const hasAbbreviation = name !== reg.title;
-  const align = markerAlign(reg.position);
-  const tooltipId = `roadmap-tip-${reg.id}`;
+  const isOpen = open?.id === reg.id;
+  const popoverId = `roadmap-pop-${reg.id}`;
   const dateLabelSide = reg.position > 85 ? 'right-full mr-1' : 'left-full ml-1';
+
+  // Shared by the name and the marker: both open the same pop-up.
+  const triggerProps = {
+    'aria-haspopup': 'dialog',
+    'aria-expanded': isOpen,
+    'aria-controls': isOpen ? popoverId : undefined,
+    onMouseEnter: (e) => onHover(e.currentTarget),
+    onMouseLeave: onLeave,
+    onClick: (e) => onToggle(e.currentTarget),
+    onKeyDown: (e) => {
+      if (e.key === 'Escape' && isOpen) onClose({ restoreFocus: false });
+    },
+  };
 
   return (
     <li className="flex items-stretch border-t border-border-default dark:border-border-dark">
       <div className="w-36 sm:w-56 flex-none px-3 py-2.5 border-r border-border-default dark:border-border-dark">
         <div className="flex items-center gap-1.5">
-          <p className="flex-1 min-w-0 text-body font-semibold text-text-primary dark:text-white truncate" title={reg.title}>
+          <CountryFlag country={reg.country} labelled />
+          <button
+            type="button"
+            {...triggerProps}
+            aria-label={`${reg.title}: details and documents`}
+            className="flex-1 min-w-0 text-left text-body font-semibold text-text-primary dark:text-white truncate rounded hover:text-brand-teal dark:hover:text-teal-300 hover:underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal"
+          >
             {name}
-          </p>
+          </button>
           {onEdit && (
             <button
               type="button"
@@ -156,29 +136,17 @@ function RoadmapRow({ reg, rowIndex, years, todayPosition, isActive, onActivate,
           />
         )}
 
-        <div
-          className={`absolute top-1/2 -translate-y-1/2 ${isActive ? 'z-30' : ''}`}
-          style={{ left: `${reg.position}%` }}
-        >
+        <div className="absolute top-1/2 -translate-y-1/2" style={{ left: `${reg.position}%` }}>
           <div className="relative -translate-x-1/2">
             <button
               type="button"
-              aria-label={`${reg.title}, due ${formatDueDate(reg.due)}`}
-              aria-describedby={isActive ? tooltipId : undefined}
-              aria-expanded={isActive}
-              onMouseEnter={onActivate}
-              onMouseLeave={onDeactivate}
-              onFocus={onActivate}
-              onBlur={onDeactivate}
-              onClick={onToggle}
-              onKeyDown={(e) => {
-                if (e.key === 'Escape') onDeactivate();
-              }}
+              {...triggerProps}
+              aria-label={`${reg.title}, due ${formatDueDate(reg.due)}: details and documents`}
               className="relative flex items-center justify-center w-6 h-6 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal focus-visible:ring-offset-2 dark:focus-visible:ring-offset-surface-card-dark"
             >
               <span
                 aria-hidden="true"
-                className="w-3.5 h-3.5 rounded-full bg-brand-teal dark:bg-teal-400 ring-2 ring-surface-card dark:ring-surface-card-dark"
+                className={`w-3.5 h-3.5 rounded-full bg-brand-teal dark:bg-teal-400 ring-2 ring-surface-card dark:ring-surface-card-dark ${isOpen ? 'scale-125' : ''}`}
               />
               <span
                 aria-hidden="true"
@@ -187,18 +155,24 @@ function RoadmapRow({ reg, rowIndex, years, todayPosition, isActive, onActivate,
                 {formatMonthYear(reg.due)}
               </span>
             </button>
-            {isActive && (
-              <RoadmapTooltip
-                id={tooltipId}
-                reg={reg}
-                buLabelByCode={buLabelByCode}
-                align={align}
-                below={rowIndex === 0}
-              />
-            )}
           </div>
         </div>
       </div>
+
+      {isOpen && (
+        <div id={popoverId}>
+          <RegulationPopover
+            reg={reg}
+            anchor={open.anchor}
+            pinned={open.pinned}
+            buLabelByCode={buLabelByCode}
+            onClose={onClose}
+            onEdit={onEditFromPopover}
+            onPointerEnter={() => onHover(open.anchor)}
+            onPointerLeave={onLeave}
+          />
+        </div>
+      )}
     </li>
   );
 }
@@ -215,8 +189,9 @@ export default function RegulationRoadmap() {
 
   const [years, setYears] = useState(DEFAULT_WINDOW_YEARS);
   const [startYear, setStartYear] = useState(thisYear);
-  const [hoverId, setHoverId] = useState(null);
-  const [pinnedId, setPinnedId] = useState(null);
+  // The open pop-up: { id, anchor (the name or marker that opened it), pinned }.
+  const [open, setOpen] = useState(null);
+  const closeTimer = useRef(null);
   const [editing, setEditing] = useState(null);
   // Bumping this re-runs the load effect after an edit or removal.
   const [reloadKey, setReloadKey] = useState(0);
@@ -287,7 +262,31 @@ export default function RegulationRoadmap() {
   const todayPosition = positionInWindow(new Date(), startYear, years);
   const endYear = startYear + years - 1;
   const yearColumns = Array.from({ length: years }, (_, i) => startYear + i);
-  const activeId = pinnedId ?? hoverId;
+
+  // Hover opens a preview; leaving the regulation and the pop-up closes it
+  // after a short pause, so the pointer can travel between them.
+  const cancelClose = () => clearTimeout(closeTimer.current);
+  useEffect(() => () => clearTimeout(closeTimer.current), []);
+  const hoverOpen = (id, anchor) => {
+    cancelClose();
+    setOpen((o) => (o?.pinned ? o : { id, anchor, pinned: false }));
+  };
+  const hoverLeave = () => {
+    cancelClose();
+    closeTimer.current = setTimeout(() => setOpen((o) => (o && !o.pinned ? null : o)), 200);
+  };
+  const toggleOpen = (id, anchor) => {
+    cancelClose();
+    setOpen((o) => (o?.pinned && o.id === id ? null : { id, anchor, pinned: true }));
+  };
+  const closePopover = useCallback(
+    ({ restoreFocus } = {}) => {
+      clearTimeout(closeTimer.current);
+      if (restoreFocus) open?.anchor?.focus();
+      setOpen(null);
+    },
+    [open]
+  );
 
   const outsideParts = [];
   if (earlier > 0) outsideParts.push(`${earlier} due before ${startYear}`);
@@ -417,22 +416,30 @@ export default function RegulationRoadmap() {
                 </p>
               ) : (
                 <ul role="list" aria-label={`Regulations due ${startYear} to ${endYear}, by due date`}>
-                  {visible.map((reg, index) => (
+                  {visible.map((reg) => (
                     <RoadmapRow
                       key={reg.id}
                       reg={reg}
-                      rowIndex={index}
                       years={years}
                       todayPosition={todayPosition}
                       buLabelByCode={buLabelByCode}
-                      isActive={activeId === reg.id}
-                      onActivate={() => setHoverId(reg.id)}
-                      onDeactivate={() => {
-                        setHoverId((id) => (id === reg.id ? null : id));
-                        setPinnedId((id) => (id === reg.id ? null : id));
-                      }}
-                      onToggle={() => setPinnedId((id) => (id === reg.id ? null : reg.id))}
+                      open={open}
+                      onHover={(anchor) => hoverOpen(reg.id, anchor)}
+                      onLeave={hoverLeave}
+                      onToggle={(anchor) => toggleOpen(reg.id, anchor)}
+                      onClose={closePopover}
                       onEdit={canEdit ? () => setEditing(reg) : undefined}
+                      onEditFromPopover={
+                        canEdit
+                          ? () => {
+                              // Focus the regulation first: the edit panel returns
+                              // focus to whatever was focused when it opened.
+                              open?.anchor?.focus();
+                              closePopover();
+                              setEditing(reg);
+                            }
+                          : undefined
+                      }
                     />
                   ))}
                 </ul>
@@ -453,7 +460,7 @@ export default function RegulationRoadmap() {
                 Today
               </span>
             )}
-            <span>Hover, focus or tap a marker for the full regulation name.</span>
+            <span>Hover over or select a regulation&rsquo;s name or marker for its details and documents.</span>
             {outsideParts.length > 0 && (
               <span className="sm:ml-auto">Not in this window: {outsideParts.join(' · ')}</span>
             )}

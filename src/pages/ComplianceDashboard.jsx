@@ -6,6 +6,7 @@ import { fetchBusinessUnits } from '../api/businessUnitsApi';
 import { fetchDashboardView, saveDashboardView } from '../api/preferencesApi';
 import DownloadMenu from '../components/DownloadMenu';
 import ErrorBanner from '../components/ErrorBanner';
+import CountryFlag from '../components/CountryFlag';
 import RegulationFilterBar from '../components/RegulationFilterBar';
 import StatusSwatch, { StatusLegend } from '../components/StatusSwatch';
 import StatusUpdatePanel from '../components/StatusUpdatePanel';
@@ -195,6 +196,22 @@ function RegulationCell({ reg, action }) {
       {/* In the pinned column so it stays reachable when the table scrolls sideways. */}
       <span className="block mt-2">{action}</span>
     </th>
+  );
+}
+
+function CountryCell({ country }) {
+  const text = (country || '').trim();
+  return (
+    <td className={CELL}>
+      {text ? (
+        <span className="inline-flex items-center gap-1.5">
+          <CountryFlag country={text} />
+          {text}
+        </span>
+      ) : (
+        <Blank label="Not specified" />
+      )}
+    </td>
   );
 }
 
@@ -600,7 +617,7 @@ export default function ComplianceDashboard() {
                         <TextCell value={entry.note} label="No explanation" wide />
                         {dueCell}
                         <TextCell value={reg.domain} />
-                        <TextCell value={reg.country} />
+                        <CountryCell country={reg.country} />
                         <TextCell value={reg.region} />
                         <TextCell value={reg.notes} label="No notes" wide />
                         <DocsCell docs={visibleDocuments(reg, reg.rowBu)} />
@@ -623,7 +640,7 @@ export default function ComplianceDashboard() {
                       />
                       {dueCell}
                       <TextCell value={reg.domain} />
-                      <TextCell value={reg.country} />
+                      <CountryCell country={reg.country} />
                       <TextCell value={reg.region} />
                       <td className={`${CELL} min-w-[10rem]`}>
                         <UnitStatusList reg={reg} buLabelByCode={buLabelByCode} />

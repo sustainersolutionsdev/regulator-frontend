@@ -6,6 +6,7 @@ import { fetchBusinessUnits } from '../api/businessUnitsApi';
 import ErrorBanner from '../components/ErrorBanner';
 import RoadmapViewSwitch from '../components/RoadmapViewSwitch';
 import RegulationEditPanel from '../components/RegulationEditPanel';
+import RegulationDetails from '../components/RegulationDetails';
 import { formatDueDate } from '../utils/roadmapDates';
 import {
   DAY_NAMES,
@@ -42,6 +43,9 @@ import {
  * Editing (T014): Admin and SME see an Edit button in a chip's details,
  * which opens RegulationEditPanel. Users get no edit controls (Srinivas,
  * Oct 13 2026).
+ *
+ * A chip's details use the same RegulationDetails as the Roadmap pop-up
+ * (Oct 24 meeting, item 3): all fields, notes, and documents to download.
  */
 
 const MAX_CHIPS_PER_DAY = 3;
@@ -58,44 +62,21 @@ function DetailPopover({ id, reg, buLabelByCode, alignRight, onClose, anchorRef,
     return () => document.removeEventListener('mousedown', onPointer);
   }, [onClose, anchorRef]);
 
-  const buLabels = (reg.businessUnitIds || []).map((code) => buLabelByCode[code] || code);
-  const place = [reg.region, reg.country].filter(Boolean).join(', ');
-  const docs = (reg.documents || []).filter((d) => !d.hidden).length;
+  const headingId = `${id}-title`;
 
   return (
     <div
       ref={ref}
       id={id}
       role="dialog"
-      aria-label={`Details: ${reg.title}`}
+      aria-labelledby={headingId}
       className={[
-        'absolute top-full mt-1 z-40 w-72 max-w-[80vw] rounded-md border px-3 py-2.5 text-left shadow-lg',
+        'absolute top-full mt-1 z-40 w-80 max-w-[85vw] max-h-[70vh] overflow-y-auto rounded-md border px-3 py-2.5 text-left shadow-lg',
         'bg-surface-card dark:bg-surface-card-dark border-border-strong dark:border-border-dark',
         alignRight ? 'right-0' : 'left-0',
       ].join(' ')}
     >
-      <p className="text-body font-semibold text-text-primary dark:text-white leading-snug">{reg.title}</p>
-      <dl className="mt-1.5 grid grid-cols-[auto_1fr] gap-x-2 gap-y-0.5 text-xs">
-        <dt className="text-text-tertiary dark:text-slate-400">Due</dt>
-        <dd className="text-text-primary dark:text-slate-200">{formatDueDate(reg.due)}</dd>
-        <dt className="text-text-tertiary dark:text-slate-400">Domain</dt>
-        <dd className="text-text-primary dark:text-slate-200">{reg.domain || '-'}</dd>
-        {place && (
-          <>
-            <dt className="text-text-tertiary dark:text-slate-400">Region</dt>
-            <dd className="text-text-primary dark:text-slate-200">{place}</dd>
-          </>
-        )}
-        <dt className="text-text-tertiary dark:text-slate-400">Business Units</dt>
-        <dd className="text-text-primary dark:text-slate-200">{buLabels.join(', ') || '-'}</dd>
-        <dt className="text-text-tertiary dark:text-slate-400">Documents</dt>
-        <dd className="text-text-primary dark:text-slate-200">{docs || 'None'}</dd>
-      </dl>
-      {reg.notes && (
-        <p className="mt-2 pt-2 border-t border-border-default dark:border-border-dark text-xs text-text-secondary dark:text-slate-300 line-clamp-3">
-          {reg.notes}
-        </p>
-      )}
+      <RegulationDetails reg={reg} buLabelByCode={buLabelByCode} headingId={headingId} />
       <div className="mt-2 flex items-center gap-3">
         {onEdit && (
           <button
@@ -103,7 +84,7 @@ function DetailPopover({ id, reg, buLabelByCode, alignRight, onClose, anchorRef,
             onClick={onEdit}
             className="text-xs px-2 py-1 rounded bg-brand-teal text-white hover:bg-brand-teal/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal focus-visible:ring-offset-1"
           >
-            Edit
+            Edit regulation
           </button>
         )}
         <button
