@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
+const APP_VERSION = import.meta.env.VITE_APP_VERSION || '0.0.0';
+const APP_COMMIT = import.meta.env.VITE_APP_COMMIT || '';
+
 const NAV_ITEMS = [
   { path: '/roadmap', label: 'Roadmap', title: 'Regulation Roadmap' },
   { path: '/dashboard', label: 'Dashboard', title: 'Compliance Dashboard' },
@@ -95,6 +98,11 @@ function Sidebar() {
         >
           Sign out
         </button>
+        {/* T058: which release is running, to quote in bug reports. */}
+        <p className="mt-2 text-[11px] text-slate-400 font-mono" title="Regulator version and build">
+          v{APP_VERSION}
+          {APP_COMMIT && <span> · {APP_COMMIT}</span>}
+        </p>
       </div>
     </aside>
   );

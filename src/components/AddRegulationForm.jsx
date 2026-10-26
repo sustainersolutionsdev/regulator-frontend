@@ -4,10 +4,10 @@ import { fetchBusinessUnits } from '../api/businessUnitsApi';
 import { createRegulation, uploadRegulationDocument, RegulationApiError } from '../api/regulationsApi';
 import ErrorBanner from './ErrorBanner';
 import DomainSelect from './DomainSelect';
+import RegionSelect from './RegionSelect';
+import FilePicker from './FilePicker';
+import { documentProblem } from '../constants/documents';
 
-// Confirmed by Srinivas (9/17): PDF/Word/Excel/text plus PowerPoint, 25MB.
-const ALLOWED_DOCUMENT_EXTENSIONS = ['.pdf', '.docx', '.doc', '.xlsx', '.xls', '.txt', '.pptx', '.ppt'];
-const MAX_DOCUMENT_BYTES = 25 * 1024 * 1024;
 
 export default function AddRegulationForm({ onRegulationAdded }) {
   const { idToken, claims } = useAuth();
@@ -24,7 +24,8 @@ export default function AddRegulationForm({ onRegulationAdded }) {
   const [region, setRegion] = useState('');
   const [selectedBuIds, setSelectedBuIds] = useState([]);
   const [notes, setNotes] = useState('');
-  const [addToRoadmapDashboard, setAddToRoadmapDashboard] = useState(false);
+  // Default Yes (Srinivas, testing feedback Oct 26; OPEN-13 default part).
+  const [addToRoadmapDashboard, setAddToRoadmapDashboard] = useState(true);
 
   const [uploadedDocs, setUploadedDocs] = useState([]); // [{file_name, gcs_uri, ...}]
   const [uploadError, setUploadError] = useState(null);
@@ -51,19 +52,13 @@ export default function AddRegulationForm({ onRegulationAdded }) {
     );
   };
 
-  const handleFileChange = async (e) => {
-    const files = Array.from(e.target.files || []);
-    e.target.value = ''; // allow re-selecting the same file after removal
+  const handleFiles = async (files) => {
     setUploadError(null);
 
     for (const file of files) {
-      const ext = '.' + file.name.split('.').pop().toLowerCase();
-      if (!ALLOWED_DOCUMENT_EXTENSIONS.includes(ext)) {
-        setUploadError(`"${file.name}": file type ${ext} is not allowed.`);
-        continue;
-      }
-      if (file.size > MAX_DOCUMENT_BYTES) {
-        setUploadError(`"${file.name}" exceeds the 25MB limit.`);
+      const problem = documentProblem(file);
+      if (problem) {
+        setUploadError(problem);
         continue;
       }
 
@@ -92,7 +87,7 @@ export default function AddRegulationForm({ onRegulationAdded }) {
     setRegion('');
     setSelectedBuIds([]);
     setNotes('');
-    setAddToRoadmapDashboard(false);
+    setAddToRoadmapDashboard(true);
     setUploadedDocs([]);
     setFormKey((k) => k + 1);
   };
@@ -208,12 +203,7 @@ export default function AddRegulationForm({ onRegulationAdded }) {
         <label htmlFor="reg_region" className="block text-label uppercase text-text-tertiary dark:text-slate-300 mb-1">
           Region <span className="normal-case text-text-tertiary dark:text-slate-300">(optional)</span>
         </label>
-        <input
-          id="reg_region"
-          value={region}
-          onChange={(e) => setRegion(e.target.value)}
-          className="border border-border-default dark:border-border-dark dark:bg-surface-muted-dark dark:text-white rounded-md px-3 py-2 text-body w-full focus:outline-none focus:ring-2 focus:ring-brand-teal focus:border-transparent"
-        />
+        <RegionSelect key={formKey} id="reg_region" country={country} value={region} onChange={setRegion} />
       </div>
 
       <div>
@@ -256,16 +246,8 @@ export default function AddRegulationForm({ onRegulationAdded }) {
         <label htmlFor="reg_documents" className="block text-label uppercase text-text-tertiary dark:text-slate-300 mb-1">
           Upload Documents <span className="normal-case text-text-tertiary dark:text-slate-300">(optional)</span>
         </label>
-        <input
-          id="reg_documents"
-          type="file"
-          multiple
-          onChange={handleFileChange}
-          disabled={uploading}
-          accept={ALLOWED_DOCUMENT_EXTENSIONS.join(',')}
-          className="block text-body text-text-primary dark:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal rounded"
-        />
-        {uploading && <p role="status" className="text-label text-text-tertiary dark:text-slate-300 mt-1">Uploading...</p>}
+        <FilePicker id="reg_documents" onFiles={handleFiles} busy={uploading} />
+        <p role="status" className="sr-only">{uploading ? 'Uploading…' : ''}</p>
         <ErrorBanner message={uploadError} />
         {uploadedDocs.length > 0 && (
           <ul className="mt-2 space-y-1">
@@ -276,7 +258,7 @@ export default function AddRegulationForm({ onRegulationAdded }) {
                   type="button"
                   onClick={() => removeUploadedDoc(doc.gcs_uri)}
                   aria-label={`Remove ${doc.file_name}`}
-                  className="text-status-action-text text-label px-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal rounded"
+                  className="text-status-action-text dark:text-red-400 text-label px-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal rounded"
                 >
                   Remove
                 </button>

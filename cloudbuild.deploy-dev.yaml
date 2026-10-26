@@ -21,6 +21,7 @@ steps:
       - |
         set -euo pipefail
         printf '%s\n' "$$FRONTEND_ENV" > .env.production.local
+        printf 'VITE_APP_COMMIT=%s\n' "$SHORT_SHA" >> .env.production.local   # T058: commit shown in the app
         grep -q '^VITE_API_BASE_URL=https://' .env.production.local \
           || { echo "VITE_API_BASE_URL missing from the regulator-frontend-env-dev secret"; exit 1; }
         npm ci --no-audit --no-fund

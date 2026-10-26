@@ -112,10 +112,14 @@ export function updateBuStatus(idToken, regulationId, buCode, changes) {
   );
 }
 
-/** addRegulationDocument — T020. Upload a document for one unit of a regulation. */
+/**
+ * addRegulationDocument — T020. Upload a document for one unit of a
+ * regulation. buCode null (Admin/SME, from the edit panel): a document for
+ * the whole regulation (Srinivas, Oct 24 US, item 6).
+ */
 export function addRegulationDocument(idToken, regulationId, buCode, file) {
   const formData = new FormData();
-  formData.append('bu_code', buCode);
+  if (buCode) formData.append('bu_code', buCode);
   formData.append('file', file);
   return multipartRequest(`/regulations/${encodeURIComponent(regulationId)}/documents`, idToken, formData);
 }

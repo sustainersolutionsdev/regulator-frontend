@@ -1,7 +1,10 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { updateRegulation, removeRegulation, RegulationApiError } from '../api/regulationsApi';
+import { addRegulationDocument, updateRegulation, removeRegulation, RegulationApiError } from '../api/regulationsApi';
 import DomainSelect from './DomainSelect';
+import RegionSelect from './RegionSelect';
+import FilePicker from './FilePicker';
+import { documentProblem } from '../constants/documents';
 import ErrorBanner from './ErrorBanner';
 
 /**
@@ -19,8 +22,10 @@ import ErrorBanner from './ErrorBanner';
  * Remove is a soft delete: the regulation disappears from every screen but
  * is never erased, and the change is audited (NFR-8, NFR-2).
  *
- * Supporting documents are listed but not edited here; document changes
- * come with the Dashboard (T020).
+ * Supporting documents: listed here, and Admin/SME can add regulation-wide
+ * documents (Srinivas, Oct 24 US, item 6). A document is saved as soon as
+ * it is added; closing the panel then refreshes the screen behind it.
+ * Removing documents stays on the Dashboard (T020).
  *
  * Built on the native <dialog> element: showModal() gives focus trapping,
  * Esc-to-close and an inert background without extra code.
@@ -29,7 +34,8 @@ import ErrorBanner from './ErrorBanner';
  *   regulation     the record to edit (as returned by GET /regulations)
  *   businessUnits  [{ code, label }] for the tenant
  *   onClose()      called when the panel closes without a change
- *   onSaved()      called after a successful save or removal
+ *   onSaved()      called after a successful save or removal, or on closing
+ *                  after a document was added
  */
 
 const fieldLabel = 'block text-label uppercase text-text-tertiary dark:text-slate-300 mb-1';
@@ -86,6 +92,7 @@ export default function RegulationEditPanel({ regulation, businessUnits, onClose
     country: useId(),
     region: useId(),
     notes: useId(),
+    docs: useId(),
   };
 
   const [original] = useState(() => initialForm(regulation));
@@ -93,6 +100,36 @@ export default function RegulationEditPanel({ regulation, businessUnits, onClose
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [confirmingRemove, setConfirmingRemove] = useState(false);
+  const [docs, setDocs] = useState(() => (regulation.documents || []).filter((d) => !d.hidden));
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState(null);
+  const [uploadNote, setUploadNote] = useState('');
+  const [docsAdded, setDocsAdded] = useState(false);
+  // Documents are saved on upload, so once one is added, closing counts as a change.
+  const close = () => (docsAdded ? onSaved() : onClose());
+
+  const addDocuments = async (files) => {
+    setUploadError(null);
+    setUploadNote('');
+    for (const file of files) {
+      const problem = documentProblem(file);
+      if (problem) {
+        setUploadError(problem);
+        continue;
+      }
+      setUploading(true);
+      try {
+        const doc = await addRegulationDocument(idToken, regulation.id, null, file);
+        setDocs((prev) => [...prev, doc]);
+        setDocsAdded(true);
+        setUploadNote(`Added "${doc.fileName}".`);
+      } catch (err) {
+        setUploadError(err instanceof RegulationApiError ? err.message : `Failed to add "${file.name}".`);
+      } finally {
+        setUploading(false);
+      }
+    }
+  };
 
   // Open as a modal on mount; on unmount, close it and hand focus back to
   // whatever opened the panel (or to <main> if that element is gone, e.g.
@@ -131,7 +168,7 @@ export default function RegulationEditPanel({ regulation, businessUnits, onClose
       return;
     }
     if (!hasChanges) {
-      onClose();
+      close();
       return;
     }
     setSaving(true);
@@ -157,15 +194,13 @@ export default function RegulationEditPanel({ regulation, businessUnits, onClose
     }
   };
 
-  const docs = (regulation.documents || []).filter((d) => !d.hidden);
-
   return (
     <dialog
       ref={dialogRef}
       aria-labelledby={titleId}
       onCancel={(e) => {
         e.preventDefault();
-        if (!saving) onClose();
+        if (!saving && !uploading) close();
       }}
       className="m-0 ml-auto h-full max-h-none w-full max-w-lg p-0 bg-surface-card dark:bg-surface-card-dark text-text-primary dark:text-white border-l border-border-default dark:border-border-dark shadow-2xl backdrop:bg-brand-navy/50"
     >
@@ -181,8 +216,8 @@ export default function RegulationEditPanel({ regulation, businessUnits, onClose
           </div>
           <button
             type="button"
-            onClick={onClose}
-            disabled={saving}
+            onClick={close}
+            disabled={saving || uploading}
             aria-label="Close"
             className="text-text-secondary dark:text-slate-300 hover:text-brand-teal dark:hover:text-teal-300 text-lg leading-none px-2 py-1 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal"
           >
@@ -242,12 +277,7 @@ export default function RegulationEditPanel({ regulation, businessUnits, onClose
             </div>
             <div>
               <label htmlFor={ids.region} className={fieldLabel}>Region</label>
-              <input
-                id={ids.region}
-                value={form.region}
-                onChange={(e) => set({ region: e.target.value })}
-                className={fieldInput}
-              />
+              <RegionSelect id={ids.region} country={form.country} value={form.region} onChange={(region) => set({ region })} />
             </div>
           </div>
 
@@ -313,9 +343,19 @@ export default function RegulationEditPanel({ regulation, businessUnits, onClose
                 ))}
               </ul>
             )}
-            <p className="mt-1 text-xs text-text-tertiary dark:text-slate-400">
-              Documents are added and replaced from the Dashboard.
-            </p>
+            <div className="mt-2">
+              <label htmlFor={ids.docs} className="block text-xs text-text-secondary dark:text-slate-300 mb-1">
+                Add a document for the whole regulation (saved straight away)
+              </label>
+              <FilePicker id={ids.docs} onFiles={addDocuments} busy={uploading} />
+              <p role="status" className="mt-1 text-xs text-green-700 dark:text-green-400">
+                {uploading ? 'Uploading…' : uploadNote}
+              </p>
+              <ErrorBanner message={uploadError} />
+              <p className="mt-1 text-xs text-text-tertiary dark:text-slate-400">
+                Documents for one Business Unit, and removing documents, are on the Dashboard.
+              </p>
+            </div>
           </div>
 
           <ErrorBanner message={error} />
@@ -359,8 +399,8 @@ export default function RegulationEditPanel({ regulation, businessUnits, onClose
               </button>
               <button
                 type="button"
-                onClick={onClose}
-                disabled={saving}
+                onClick={close}
+                disabled={saving || uploading}
                 className="rounded-md px-4 py-2 text-body border border-border-default dark:border-border-dark text-text-secondary dark:text-slate-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal"
               >
                 Cancel

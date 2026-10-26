@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { fetchBusinessUnits, createBusinessUnit, BusinessUnitApiError } from '../api/businessUnitsApi';
+import { fetchBusinessUnits, createBusinessUnit, renameBusinessUnit, BusinessUnitApiError } from '../api/businessUnitsApi';
 import ErrorBanner from '../components/ErrorBanner';
 
 // Static per Requirements Doc Section on roles (resolved Aug 26/30, 2026).
@@ -22,6 +22,102 @@ const ROLE_MODEL = [
     detail: 'Can view everything tenant-wide, but can only edit dashboard status, notes, and documents within their assigned Business Unit(s). Attempting to edit outside that scope returns a clear on-screen error, not a silent block.',
   },
 ];
+
+/**
+ * One Business Unit row. Admin/SME can rename the unit (Srinivas, Oct 24 US,
+ * item 7): the name changes everywhere, the code stays, so regulations,
+ * statuses and people assigned to it are unaffected. Deactivating a unit
+ * waits for Srinivas's decision (OPEN-18).
+ */
+function BusinessUnitRow({ bu, canConfigure, idToken, onRenamed }) {
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState(bu.label);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
+  const inputId = `bu-rename-${bu.code}`;
+
+  const save = async (e) => {
+    e.preventDefault();
+    if (saving) return;
+    setError(null);
+    setSaving(true);
+    try {
+      await renameBusinessUnit(idToken, bu.code, name.trim());
+      setEditing(false);
+      onRenamed();
+    } catch (err) {
+      setError(err instanceof BusinessUnitApiError ? err.message : 'Failed to rename the Business Unit.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <tr className="border-b border-border-default dark:border-border-dark align-top">
+      <td className="py-2 cfr text-brand-teal dark:text-teal-300">{bu.code}</td>
+      <td className="py-2 text-text-primary dark:text-white">
+        {editing ? (
+          <form onSubmit={save} className="space-y-1.5">
+            <label htmlFor={inputId} className="sr-only">New name for {bu.code}</label>
+            <input
+              id={inputId}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              maxLength={80}
+              required
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') {
+                  setEditing(false);
+                  setName(bu.label);
+                  setError(null);
+                }
+              }}
+              className="border border-border-default dark:border-border-dark dark:bg-surface-muted-dark dark:text-white rounded-md px-3 py-1.5 text-body w-full focus:outline-none focus:ring-2 focus:ring-brand-teal focus:border-transparent"
+            />
+            <div className="flex items-center gap-2">
+              <button
+                type="submit"
+                aria-disabled={saving || undefined}
+                className="bg-brand-teal text-white rounded-md px-3 py-1 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal focus-visible:ring-offset-2"
+              >
+                {saving ? 'Saving…' : 'Save name'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setEditing(false);
+                  setName(bu.label);
+                  setError(null);
+                }}
+                className="text-xs px-2 py-1 text-text-secondary dark:text-slate-300 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal rounded"
+              >
+                Cancel
+              </button>
+            </div>
+            <ErrorBanner message={error} />
+          </form>
+        ) : (
+          bu.label
+        )}
+      </td>
+      {canConfigure && (
+        <td className="py-2 text-right">
+          {!editing && (
+            <button
+              type="button"
+              onClick={() => setEditing(true)}
+              aria-label={`Rename ${bu.label} (${bu.code})`}
+              className="text-xs px-2 py-0.5 rounded border border-border-default dark:border-border-dark text-text-secondary dark:text-slate-300 hover:border-brand-teal hover:text-brand-teal dark:hover:border-teal-300 dark:hover:text-teal-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal"
+            >
+              Rename
+            </button>
+          )}
+        </td>
+      )}
+    </tr>
+  );
+}
 
 export default function BusinessUnitSetup() {
   const { idToken, claims } = useAuth();
@@ -87,7 +183,7 @@ export default function BusinessUnitSetup() {
               <span className="w-16 flex-shrink-0 font-semibold text-brand-navy dark:text-white">{r.role}</span>
               <div>
                 <div className="text-text-secondary dark:text-slate-400">{r.scope}</div>
-                <div className="text-text-tertiary text-label mt-0.5">{r.detail}</div>
+                <div className="text-text-tertiary dark:text-slate-300 text-label mt-0.5">{r.detail}</div>
               </div>
             </div>
           ))}
@@ -103,20 +199,24 @@ export default function BusinessUnitSetup() {
         {!loading && !loadError && (
           <table role="grid" className="w-full text-body mb-5">
             <thead>
-              <tr className="border-b border-border-default dark:border-border-dark text-label uppercase text-text-tertiary">
+              <tr className="border-b border-border-default dark:border-border-dark text-label uppercase text-text-tertiary dark:text-slate-300">
                 <th scope="col" className="text-left py-2">Code</th>
                 <th scope="col" className="text-left py-2">Label</th>
+                {canConfigure && <th scope="col" className="text-right py-2"><span className="sr-only">Actions</span></th>}
               </tr>
             </thead>
             <tbody>
               {businessUnits.length === 0 ? (
-                <tr><td colSpan={2} className="py-3 text-text-tertiary">No Business Units yet.</td></tr>
+                <tr><td colSpan={canConfigure ? 3 : 2} className="py-3 text-text-tertiary dark:text-slate-300">No Business Units yet.</td></tr>
               ) : (
                 businessUnits.map((bu) => (
-                  <tr key={bu.id} className="border-b border-border-default dark:border-border-dark">
-                    <td className="py-2 cfr text-brand-teal">{bu.code}</td>
-                    <td className="py-2 text-text-primary dark:text-white">{bu.label}</td>
-                  </tr>
+                  <BusinessUnitRow
+                    key={bu.id}
+                    bu={bu}
+                    canConfigure={canConfigure}
+                    idToken={idToken}
+                    onRenamed={() => setReloadKey((k) => k + 1)}
+                  />
                 ))
               )}
             </tbody>
@@ -126,7 +226,7 @@ export default function BusinessUnitSetup() {
         {canConfigure ? (
           <form onSubmit={handleCreate} className="flex gap-3 items-end">
             <div>
-              <label htmlFor="bu_code" className="block text-label uppercase text-text-tertiary mb-1">Code</label>
+              <label htmlFor="bu_code" className="block text-label uppercase text-text-tertiary dark:text-slate-300 mb-1">Code</label>
               <input
                 id="bu_code"
                 value={buCode}
@@ -137,7 +237,7 @@ export default function BusinessUnitSetup() {
               />
             </div>
             <div className="flex-1">
-              <label htmlFor="bu_label" className="block text-label uppercase text-text-tertiary mb-1">Label</label>
+              <label htmlFor="bu_label" className="block text-label uppercase text-text-tertiary dark:text-slate-300 mb-1">Label</label>
               <input
                 id="bu_label"
                 value={label}
@@ -156,7 +256,7 @@ export default function BusinessUnitSetup() {
             </button>
           </form>
         ) : (
-          <p className="text-body text-text-tertiary">
+          <p className="text-body text-text-tertiary dark:text-slate-300">
             Only Admin or SME accounts can add Business Units.
           </p>
         )}
