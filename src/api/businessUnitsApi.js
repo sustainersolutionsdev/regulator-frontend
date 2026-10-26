@@ -17,3 +17,15 @@ export function createBusinessUnit(idToken, buCode, label) {
     params: { bu_code: buCode, label },
   });
 }
+
+/**
+ * renameBusinessUnit — Admin/SME change a unit's name; the code stays
+ * (Srinivas, Oct 24 US, item 7; testing feedback Oct 26).
+ */
+export function renameBusinessUnit(idToken, buCode, label) {
+  return apiRequest(`/business-units/${encodeURIComponent(buCode)}`, {
+    method: 'PATCH',
+    idToken,
+    body: { label },
+  });
+}
