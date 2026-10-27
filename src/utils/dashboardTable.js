@@ -54,7 +54,8 @@ export function visibleDocuments(reg, bu = null) {
   return (reg.documents || []).filter((d) => !d.hidden && (!bu || !d.buCode || d.buCode === bu));
 }
 
-export const SORT_KEYS = ['name', 'unit', 'due', 'status', 'domain', 'updated'];
+// Oct 26 feedback (T062): every column sorts.
+export const SORT_KEYS = ['name', 'unit', 'due', 'status', 'explanation', 'domain', 'country', 'region', 'notes', 'docs', 'added', 'updated'];
 export const DEFAULT_SORT = Object.freeze({ key: 'due', dir: 'asc' });
 
 export function displayName(reg) {
@@ -126,6 +127,16 @@ const SORT_VALUE = {
     return ranks.length ? String(Math.min(...ranks)) : '';
   },
   domain: (reg) => text(reg.domain),
+  country: (reg) => text(reg.country),
+  region: (reg) => text(reg.region),
+  notes: (reg) => text(reg.notes),
+  explanation: (reg) => text(reg.rowBu ? unitEntry(reg, reg.rowBu).note : ''),
+  // Count of visible documents, zero-padded so text order is number order (0 docs is a value, not blank).
+  docs: (reg) => String(visibleDocuments(reg, reg.rowBu || null).length).padStart(5, '0'),
+  added: (reg) => {
+    const date = parseTimestamp(reg.createdAt);
+    return date ? date.toISOString() : '';
+  },
   // Valid "YYYY-MM-DD" strings sort correctly as plain strings.
   due: (reg) => (parseDueDate(reg.dueDate) ? text(reg.dueDate) : ''),
   updated: (reg) => {
@@ -143,7 +154,7 @@ const SORT_VALUE = {
 export function sortRegulations(regulations, sort) {
   const valueOf = SORT_VALUE[sort.key] || SORT_VALUE[DEFAULT_SORT.key];
   const sign = sort.dir === 'desc' ? -1 : 1;
-  const textual = sort.key === 'name' || sort.key === 'domain' || sort.key === 'unit';
+  const textual = ['name', 'domain', 'unit', 'country', 'region', 'notes', 'explanation'].includes(sort.key);
 
   return [...regulations].sort((a, b) => {
     const va = valueOf(a);

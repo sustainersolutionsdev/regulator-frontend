@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { fetchUsers, UserApiError } from '../api/usersApi';
+import { fetchUsers, resendInvitation, UserApiError } from '../api/usersApi';
 import { fetchBusinessUnits } from '../api/businessUnitsApi';
 import ErrorBanner from '../components/ErrorBanner';
 import AddUsersForm from '../components/AddUsersForm';
@@ -36,7 +36,48 @@ function initialsFor(name, email) {
   return source.slice(0, 2).toUpperCase();
 }
 
-function UserCard({ user, buLabelByCode }) {
+/**
+ * Resend invitation (T061, approved Oct 26): Admin/SME send a fresh welcome
+ * email with a new "Set my password" link (valid 1 hour) to someone who
+ * missed it or let it expire.
+ */
+function ResendInvitation({ user, idToken }) {
+  const [state, setState] = useState('idle'); // idle | sending | sent | error
+  const [error, setError] = useState(null);
+
+  const send = async () => {
+    if (state === 'sending') return;
+    setState('sending');
+    setError(null);
+    try {
+      await resendInvitation(idToken, user.id);
+      setState('sent');
+    } catch (err) {
+      setError(err instanceof UserApiError ? err.message : 'Failed to send the invitation.');
+      setState('error');
+    }
+  };
+
+  return (
+    <div className="mt-2">
+      <button
+        type="button"
+        onClick={send}
+        aria-disabled={state === 'sending' || undefined}
+        aria-label={`Resend invitation to ${user.displayName || user.email}`}
+        className="text-xs px-2 py-0.5 rounded border border-border-default dark:border-border-dark text-text-secondary dark:text-slate-300 hover:border-brand-teal hover:text-brand-teal dark:hover:border-teal-300 dark:hover:text-teal-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal"
+      >
+        {state === 'sending' ? 'Sending…' : 'Resend invitation'}
+      </button>
+      <p role="status" className="mt-1 text-xs text-green-700 dark:text-green-400">
+        {state === 'sent' ? `Invitation sent to ${user.email}.` : ''}
+      </p>
+      <ErrorBanner message={error} />
+    </div>
+  );
+}
+
+function UserCard({ user, buLabelByCode, canConfigure, idToken }) {
   const buLabels = (user.businessUnitIds || []).map((code) => buLabelByCode[code] || code);
 
   return (
@@ -49,7 +90,7 @@ function UserCard({ user, buLabelByCode }) {
           <div className="text-sm font-semibold text-text-primary dark:text-white truncate leading-tight">
             {user.displayName || user.email}
           </div>
-          <a href={`mailto:${user.email}`} className="text-xs text-text-tertiary hover:text-brand-teal truncate block mt-0.5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-teal rounded-sm">
+          <a href={`mailto:${user.email}`} className="text-xs text-text-secondary dark:text-slate-400 hover:text-brand-teal dark:hover:text-teal-300 truncate block mt-0.5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-teal rounded-sm">
             {user.email}
           </a>
         </div>
@@ -61,15 +102,16 @@ function UserCard({ user, buLabelByCode }) {
 
       <div className="flex flex-wrap gap-1 mt-auto pt-2 border-t border-border-default dark:border-border-dark">
         {buLabels.length === 0 ? (
-          <span className="text-[11px] text-text-tertiary">No Business Unit assigned</span>
+          <span className="text-[11px] text-text-secondary dark:text-slate-400">No Business Unit assigned</span>
         ) : (
           buLabels.map((label, i) => (
-            <span key={i} className="text-[10px] px-1.5 py-0.5 rounded bg-surface-muted dark:bg-slate-800 text-text-tertiary border border-border-default dark:border-border-dark">
+            <span key={i} className="text-[10px] px-1.5 py-0.5 rounded bg-surface-muted dark:bg-slate-800 text-text-secondary dark:text-slate-300 border border-border-default dark:border-border-dark">
               {label}
             </span>
           ))
         )}
       </div>
+      {canConfigure && <ResendInvitation user={user} idToken={idToken} />}
     </article>
   );
 }
@@ -189,7 +231,7 @@ export default function PeopleDirectory() {
           </div>
 
           <div className="flex items-center gap-2 ml-auto">
-            <label htmlFor="dir-sort" className="text-label text-text-tertiary whitespace-nowrap">Sort by</label>
+            <label htmlFor="dir-sort" className="text-label text-text-secondary dark:text-slate-400 whitespace-nowrap">Sort by</label>
             <select
               id="dir-sort"
               value={sort}
@@ -202,7 +244,7 @@ export default function PeopleDirectory() {
             </select>
           </div>
 
-          <div className="text-label text-text-tertiary whitespace-nowrap" aria-live="polite" aria-atomic="true">
+          <div className="text-label text-text-secondary dark:text-slate-400 whitespace-nowrap" aria-live="polite" aria-atomic="true">
             {filtered.length} {filtered.length === 1 ? 'user' : 'users'}
           </div>
         </div>
@@ -219,7 +261,7 @@ export default function PeopleDirectory() {
             <ul role="list" aria-label="User directory" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {filtered.map((u) => (
                 <li key={u.id} className="contents">
-                  <UserCard user={u} buLabelByCode={buLabelByCode} />
+                  <UserCard user={u} buLabelByCode={buLabelByCode} canConfigure={canConfigure} idToken={idToken} />
                 </li>
               ))}
             </ul>
