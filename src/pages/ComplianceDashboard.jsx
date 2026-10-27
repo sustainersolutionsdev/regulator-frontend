@@ -87,13 +87,21 @@ const SORTABLE = {
   unit: 'Business unit',
   due: 'Due date',
   status: 'Status',
+  explanation: 'Explanation',
   domain: 'Domain',
+  country: 'Country',
+  region: 'Region',
+  notes: 'Notes',
+  docs: 'Docs',
+  added: 'Added',
   updated: 'Last updated',
 };
 
 const SAVE_DELAY_MS = 800;
 
-const CELL = 'px-3 py-3 align-top text-body text-text-primary dark:text-slate-200';
+// Oct 26 feedback (T062): compact rows - one line per cell, full text on hover
+// (title) and in the Update / View panel.
+const CELL = 'px-3 py-2 align-top text-body text-text-primary dark:text-slate-200';
 const STICKY =
   'sticky left-0 z-10 bg-surface-card dark:bg-surface-card-dark border-r border-border-default dark:border-border-dark';
 
@@ -137,17 +145,6 @@ function SortHeader({ sortKey, sort, onSort, className = '' }) {
   );
 }
 
-function PlainHeader({ children, className = '' }) {
-  return (
-    <th
-      scope="col"
-      className={`px-3 py-2.5 text-left whitespace-nowrap text-label uppercase text-text-secondary dark:text-slate-300 ${className}`}
-    >
-      {children}
-    </th>
-  );
-}
-
 function ViewSwitch({ view, onChange }) {
   const options = [
     { value: 'regulation', label: 'By regulation' },
@@ -183,18 +180,19 @@ function RegulationCell({ reg, action }) {
   const name = displayName(reg);
   return (
     <th scope="row" className={`${CELL} ${STICKY} text-left font-normal min-w-[12rem] max-w-[18rem]`}>
-      <span className="block font-semibold text-text-primary dark:text-white" title={reg.title}>
+      {/* Oct 26 feedback (T062): the name once; the full title on hover and in Update / View. */}
+      <span className="block font-semibold text-text-primary dark:text-white truncate" title={reg.title}>
         {name}
       </span>
-      {name !== reg.title && (
-        <span className="block text-xs text-text-secondary dark:text-slate-400 mt-0.5">{reg.title}</span>
-      )}
-      <span className="block font-mono text-[11px] text-text-tertiary dark:text-slate-400 mt-1">
-        <span className="sr-only">Record ID </span>
-        {reg.id}
-      </span>
+      {name !== reg.title && <span className="sr-only">{reg.title}</span>}
       {/* In the pinned column so it stays reachable when the table scrolls sideways. */}
-      <span className="block mt-2">{action}</span>
+      <span className="flex items-center gap-2 mt-1">
+        {action}
+        <span className="font-mono text-[11px] text-text-tertiary dark:text-slate-400 truncate" title={`Record ID ${reg.id}`}>
+          <span className="sr-only">Record ID </span>
+          {reg.id}
+        </span>
+      </span>
     </th>
   );
 }
@@ -218,9 +216,9 @@ function CountryCell({ country }) {
 function TextCell({ value, label = 'Not specified', wide = false }) {
   const text = (value || '').trim();
   return (
-    <td className={`${CELL} ${wide ? 'min-w-[14rem] max-w-[22rem]' : ''}`}>
+    <td className={`${CELL} ${wide ? 'min-w-[14rem] max-w-[22rem]' : 'whitespace-nowrap'}`}>
       {text ? (
-        <span className={wide ? 'line-clamp-3 whitespace-pre-line' : ''} title={wide ? text : undefined}>
+        <span className={wide ? 'line-clamp-1' : ''} title={wide ? text : undefined}>
           {text}
         </span>
       ) : (
@@ -246,7 +244,7 @@ function UpdateButton({ label, canEdit, onOpen }) {
         type="button"
         onClick={onOpen}
         aria-label={`${canEdit ? 'Update' : 'View'} status: ${label}`}
-        className="text-xs px-2 py-1 rounded border border-border-default dark:border-border-dark text-text-secondary dark:text-slate-300 hover:border-brand-teal hover:text-brand-teal dark:hover:border-teal-300 dark:hover:text-teal-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal"
+        className="flex-none text-xs px-2 py-0.5 rounded border border-border-default dark:border-border-dark text-text-secondary dark:text-slate-300 hover:border-brand-teal hover:text-brand-teal dark:hover:border-teal-300 dark:hover:text-teal-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal"
       >
         {canEdit ? 'Update' : 'View'}
     </button>
@@ -459,7 +457,15 @@ export default function ComplianceDashboard() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <ViewSwitch view={view} onChange={setView} />
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <ViewSwitch view={view} onChange={setView} />
+          {/* Oct 26 feedback, item 7: what the two views are for. */}
+          <p className="text-xs text-text-secondary dark:text-slate-300 max-w-xl">
+            {view === 'bu'
+              ? 'By Business Unit: one row per regulation for each unit, with that unit’s status, explanation and documents. Filter by Business Unit to see everything one unit has to do.'
+              : 'By regulation: one row per regulation, with every Business Unit’s status side by side.'}
+          </p>
+        </div>
         <p className="text-xs text-text-secondary dark:text-slate-400">
           Status is set for each Business Unit by its own people.
         </p>
@@ -500,12 +506,21 @@ export default function ComplianceDashboard() {
           {!loading && !loadError && (
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
               <p className="text-xs text-text-secondary dark:text-slate-400">
-                {countLabel} &middot; sorted by {sortDescription.toLowerCase()}
+                {countLabel} &middot; sorted by {sortDescription.toLowerCase()} &middot; click a column heading to sort
               </p>
               <DownloadMenu disabled={filtered.length === 0} onDownload={onDownload} summary={countLabel} />
             </div>
           )}
         </div>
+
+        {/* Oct 26 feedback, item 6: how people update the Dashboard. */}
+        {!loading && !loadError && filtered.length > 0 && (
+          <p className="px-5 py-2 text-xs text-text-secondary dark:text-slate-300 border-b border-border-default dark:border-border-dark">
+            To set a status, write an explanation or add a document, click <strong>Update</strong> on a regulation&rsquo;s
+            row (<strong>View</strong> if it isn&rsquo;t one of your Business Units). Hover over shortened text to read all
+            of it. The table scrolls sideways for more columns.
+          </p>
+        )}
 
         {loading && <p className="p-5 text-body text-text-secondary dark:text-slate-400">Loading...</p>}
         {loadError && (
@@ -539,7 +554,9 @@ export default function ComplianceDashboard() {
             // relative: the sr-only text in cells is absolutely positioned; without a
             // positioned ancestor it escapes this scroll box and widens the whole
             // page at narrow widths and high zoom (WCAG 1.4.10, found in T022).
-            className="relative overflow-x-auto rounded-b-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-teal"
+            // Oct 26 feedback, item 4: the table scrolls inside its own area, so the
+            // sideways scrollbar is always on screen and the headings stay in view.
+            className="relative overflow-auto max-h-[70vh] rounded-b-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-teal"
             role="region"
             aria-labelledby="dashboard-table-heading"
             tabIndex={0}
@@ -549,19 +566,19 @@ export default function ComplianceDashboard() {
                 Compliance Dashboard, {view === 'bu' ? 'one row per Business Unit of each regulation' : 'one row per regulation'}:{' '}
                 {countLabel}, sorted by {sortDescription}. Column headers with buttons change the sort.
               </caption>
-              <thead className="bg-surface-muted dark:bg-surface-muted-dark">
+              <thead className="sticky top-0 z-30 bg-surface-muted dark:bg-surface-muted-dark shadow-[0_1px_0_0_var(--color-border-default)]">
                 {view === 'bu' ? (
                   <tr>
                     <SortHeader sortKey="name" sort={sort} onSort={onSort} className={`sticky left-0 z-20 bg-surface-muted dark:bg-surface-muted-dark border-r border-border-default dark:border-border-dark`} />
                     <SortHeader sortKey="unit" sort={sort} onSort={onSort} />
                     <SortHeader sortKey="status" sort={sort} onSort={onSort} />
-                    <PlainHeader>Explanation</PlainHeader>
+                    <SortHeader sortKey="explanation" sort={sort} onSort={onSort} />
                     <SortHeader sortKey="due" sort={sort} onSort={onSort} />
                     <SortHeader sortKey="domain" sort={sort} onSort={onSort} />
-                    <PlainHeader>Country</PlainHeader>
-                    <PlainHeader>Region</PlainHeader>
-                    <PlainHeader>Notes</PlainHeader>
-                    <PlainHeader className="text-center">Docs</PlainHeader>
+                    <SortHeader sortKey="country" sort={sort} onSort={onSort} />
+                    <SortHeader sortKey="region" sort={sort} onSort={onSort} />
+                    <SortHeader sortKey="notes" sort={sort} onSort={onSort} />
+                    <SortHeader sortKey="docs" sort={sort} onSort={onSort} />
                     <SortHeader sortKey="updated" sort={sort} onSort={onSort} />
                   </tr>
                 ) : (
@@ -569,12 +586,12 @@ export default function ComplianceDashboard() {
                     <SortHeader sortKey="name" sort={sort} onSort={onSort} className={`sticky left-0 z-20 bg-surface-muted dark:bg-surface-muted-dark border-r border-border-default dark:border-border-dark`} />
                     <SortHeader sortKey="due" sort={sort} onSort={onSort} />
                     <SortHeader sortKey="domain" sort={sort} onSort={onSort} />
-                    <PlainHeader>Country</PlainHeader>
-                    <PlainHeader>Region</PlainHeader>
+                    <SortHeader sortKey="country" sort={sort} onSort={onSort} />
+                    <SortHeader sortKey="region" sort={sort} onSort={onSort} />
                     <SortHeader sortKey="status" sort={sort} onSort={onSort} />
-                    <PlainHeader>Notes</PlainHeader>
-                    <PlainHeader className="text-center">Docs</PlainHeader>
-                    <PlainHeader>Added</PlainHeader>
+                    <SortHeader sortKey="notes" sort={sort} onSort={onSort} />
+                    <SortHeader sortKey="docs" sort={sort} onSort={onSort} />
+                    <SortHeader sortKey="added" sort={sort} onSort={onSort} />
                     <SortHeader sortKey="updated" sort={sort} onSort={onSort} />
                   </tr>
                 )}

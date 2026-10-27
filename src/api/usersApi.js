@@ -24,3 +24,11 @@ export function createUser(idToken, { email, displayName, title, role, businessU
     },
   });
 }
+
+/**
+ * resendInvitation — T061 (approved Oct 26): Admin/SME send a fresh
+ * invitation email ("Set my password", valid 1 hour) to someone in their company.
+ */
+export function resendInvitation(idToken, uid) {
+  return apiRequest(`/users/${encodeURIComponent(uid)}/resend-invitation`, { method: 'POST', idToken });
+}

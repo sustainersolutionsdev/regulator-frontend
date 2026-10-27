@@ -70,7 +70,7 @@ export default function AddUsersForm({ onUserAdded }) {
         businessUnitIds: selectedBuIds,
         notes: notes.trim(),
       });
-      setSuccessMessage(`${email.trim()} created. Ask them to open Regulator, choose “Forgot password?” and set a password from the email they receive.`);
+      setSuccessMessage(`Invitation email sent to ${email.trim()}. It has a “Set my password” button that works for 1 hour; after that they can use “Forgot password?” on the sign-in page.`);
       setEmail('');
       setDisplayName('');
       setTitle('');
@@ -174,7 +174,7 @@ export default function AddUsersForm({ onUserAdded }) {
                     onChange={() => toggleBu(bu.id)}
                     className="rounded border-border-default dark:border-border-dark focus:ring-2 focus:ring-brand-teal"
                   />
-                  <span className="cfr text-brand-teal">{bu.code}</span>
+                  <span className="cfr text-brand-teal dark:text-teal-300">{bu.code}</span>
                   <span className="text-text-secondary dark:text-slate-400">{bu.label}</span>
                 </label>
               ))}

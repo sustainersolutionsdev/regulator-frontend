@@ -53,6 +53,10 @@ import {
  * RegulationPopover with all its details, its documents to download and,
  * for Admin/SME, Edit. A country flag sits beside each name (item 9).
  *
+ * Each row shows the regulation's name once (Srinivas, Oct 26 feedback,
+ * item 2): the abbreviated name when there is one, with the full title on
+ * hover and in the pop-up.
+ *
  * The monthly calendar (T013, FR-1.3) is a separate screen at
  * /roadmap/calendar, reached through RoadmapViewSwitch.
  *
@@ -96,6 +100,7 @@ function RoadmapRow({ reg, years, todayPosition, open, onHover, onLeave, onToggl
             type="button"
             {...triggerProps}
             aria-label={`${reg.title}: details and documents`}
+            title={hasAbbreviation ? reg.title : undefined}
             className="flex-1 min-w-0 text-left text-body font-semibold text-text-primary dark:text-white truncate rounded hover:text-brand-teal dark:hover:text-teal-300 hover:underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal"
           >
             {name}
@@ -111,11 +116,6 @@ function RoadmapRow({ reg, years, todayPosition, open, onHover, onLeave, onToggl
             </button>
           )}
         </div>
-        {hasAbbreviation && (
-          <p className="text-xs text-text-secondary dark:text-slate-400 truncate" title={reg.title}>
-            {reg.title}
-          </p>
-        )}
       </div>
 
       <div className="relative flex-1 min-h-[3.25rem]">
