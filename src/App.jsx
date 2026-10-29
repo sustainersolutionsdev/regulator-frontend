@@ -9,6 +9,7 @@ import MonthlyCalendar from './pages/MonthlyCalendar';
 import ComplianceDashboard from './pages/ComplianceDashboard';
 import EmailAlertsSettings from './pages/EmailAlertsSettings';
 import LoginScreen, { AccountNotReady } from './pages/LoginScreen';
+import { isAdminOrSme } from './constants/access';
 
 export default function App() {
   const { user, claims, loading, logout } = useAuth();
@@ -29,6 +30,10 @@ export default function App() {
     return <AccountNotReady email={user.email} onSignOut={logout} />;
   }
 
+  // T066: Add Regulation and Settings are Admin/SME pages; a User who opens
+  // one by its address lands on the Roadmap instead.
+  const adminOnly = (element) => (isAdminOrSme(claims.role) ? element : <Navigate to="/roadmap" replace />);
+
   return (
     <Routes>
       <Route element={<AppLayout />}>
@@ -36,9 +41,9 @@ export default function App() {
         <Route path="/roadmap" element={<RegulationRoadmap />} />
         <Route path="/roadmap/calendar" element={<MonthlyCalendar />} />
         <Route path="/dashboard" element={<ComplianceDashboard />} />
-        <Route path="/settings" element={<BusinessUnitSetup />} />
+        <Route path="/settings" element={adminOnly(<BusinessUnitSetup />)} />
         <Route path="/directory" element={<PeopleDirectory />} />
-        <Route path="/add-regulation" element={<AddRegulationForm />} />
+        <Route path="/add-regulation" element={adminOnly(<AddRegulationForm />)} />
         <Route path="/account/email-alerts" element={<EmailAlertsSettings />} />
       </Route>
     </Routes>

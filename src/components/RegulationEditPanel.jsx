@@ -15,7 +15,7 @@ import ErrorBanner from './ErrorBanner';
  * only, and the backend refuses everyone else with 403 regardless.
  *
  * No compliance status here (DL-8, Srinivas Oct 16 2026): status is per
- * Business Unit and is set on the Dashboard (StatusUpdatePanel), by Admin/SME
+ * Business Unit and is set on the Dashboard (UnitStatusDialog, T065), by Admin/SME
  * for any unit and by Users for their own. T018's single-status section was
  * removed in T020.
  *

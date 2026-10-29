@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { fetchBusinessUnits } from '../api/businessUnitsApi';
+import { ADMIN_SME_PATHS, isAdminOrSme } from '../constants/access';
 
 const APP_VERSION = import.meta.env.VITE_APP_VERSION || '0.0.0';
 const APP_COMMIT = import.meta.env.VITE_APP_COMMIT || '';
@@ -14,15 +16,54 @@ const NAV_ITEMS = [
   { path: '/settings', label: 'Settings', title: 'Tenant & Business Unit Setup' },
 ];
 
+// T066 (Niranjan, Oct 27): the menu shows only the pages the role can use.
+function navFor(role) {
+  return NAV_ITEMS.filter((item) => isAdminOrSme(role) || !ADMIN_SME_PATHS.includes(item.path));
+}
+
 // T025 (DL-9): each person's own email alert setting. Not a main nav item:
 // it is a personal setting, so it sits with Sign out at the foot of the sidebar.
 const EMAIL_ALERTS_PATH = '/account/email-alerts';
 
-function roleChipLabel(role) {
-  if (role === 'user') return 'User · view tenant-wide';
-  if (role === 'admin') return 'Admin';
-  if (role === 'sme') return 'SME';
-  return role ?? 'Unknown';
+const ROLE_NAMES = { admin: 'Admin', sme: 'SME', user: 'User' };
+
+/**
+ * T066 (Niranjan, Oct 27): who is signed in, shown top right and bottom left:
+ * the person's name, and their role with the Business Units it covers.
+ */
+function useIdentity() {
+  const { claims, profile, user, idToken } = useAuth();
+  const [unitNames, setUnitNames] = useState({});
+  const isUser = claims?.role === 'user';
+
+  useEffect(() => {
+    if (!idToken || !isUser) return undefined;
+    let cancelled = false;
+    fetchBusinessUnits(idToken)
+      .then((list) => {
+        if (!cancelled) setUnitNames(Object.fromEntries(list.map((bu) => [bu.code, bu.label])));
+      })
+      .catch(() => {
+        // Codes stand in for names.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [idToken, isUser]);
+
+  const name = profile?.displayName || profile?.email || user?.email || '';
+  const role = ROLE_NAMES[claims?.role] || claims?.role || '';
+  const units = (claims?.businessUnitIds || []).map((code) => unitNames[code] || code);
+  const scope = isUser ? units.join(', ') || 'no Business Units' : 'all Business Units';
+  const initials =
+    name
+      .replace(/@.*/, '')
+      .split(/[\s._-]+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0].toUpperCase())
+      .join('') || '?';
+  return { name, role, roleLine: role ? `${role} · ${scope}` : '', initials };
 }
 
 function useDarkMode() {
@@ -42,6 +83,7 @@ function useDarkMode() {
 
 function Sidebar() {
   const { claims, logout } = useAuth();
+  const me = useIdentity();
 
   return (
     <aside
@@ -59,7 +101,7 @@ function Sidebar() {
       </div>
 
       <nav className="flex-1 px-2 py-3 space-y-0.5 overflow-y-auto" aria-label="Main">
-        {NAV_ITEMS.map(({ path, label }) => (
+        {navFor(claims?.role).map(({ path, label }) => (
           <NavLink
             key={path}
             to={path}
@@ -79,7 +121,8 @@ function Sidebar() {
       </nav>
 
       <div className="px-4 py-3 border-t border-border-dark">
-        <div className="text-xs text-slate-400 truncate">{claims?.role ? roleChipLabel(claims.role) : ''}</div>
+        <p className="text-sm font-medium text-white truncate" title={me.name}>{me.name}</p>
+        <p className="text-xs text-slate-300 truncate" title={me.roleLine}>{me.roleLine}</p>
         <NavLink
           to={EMAIL_ALERTS_PATH}
           className={({ isActive }) =>
@@ -98,10 +141,10 @@ function Sidebar() {
         >
           Sign out
         </button>
-        {/* T058: which release is running, to quote in bug reports. */}
-        <p className="mt-2 text-[11px] text-slate-400 font-mono" title="Regulator version and build">
+        {/* T058: which release is running, to quote in bug reports. T066: the
+            build code is not for end users; it stays in the tooltip. */}
+        <p className="mt-2 text-[11px] text-slate-400 font-mono" title={APP_COMMIT ? `Build ${APP_COMMIT}` : undefined}>
           v{APP_VERSION}
-          {APP_COMMIT && <span> · {APP_COMMIT}</span>}
         </p>
       </div>
     </aside>
@@ -116,7 +159,7 @@ function pageTitle(pathname) {
 }
 
 function TopBar() {
-  const { claims } = useAuth();
+  const me = useIdentity();
   const location = useLocation();
   const [isDark, setIsDark] = useDarkMode();
   const title = pageTitle(location.pathname);
@@ -136,9 +179,18 @@ function TopBar() {
         >
           {isDark ? 'Light mode' : 'Dark mode'}
         </button>
-        <span className="text-label uppercase tracking-wide text-text-secondary dark:text-slate-300 bg-surface-muted dark:bg-surface-muted-dark px-2.5 py-1 rounded-full">
-          {roleChipLabel(claims?.role)}
-        </span>
+        <div className="flex items-center gap-2 pl-1 pr-3 py-0.5 rounded-full border border-border-default dark:border-border-dark">
+          <span
+            aria-hidden="true"
+            className="w-7 h-7 rounded-full bg-brand-navy dark:bg-slate-600 text-white text-[11px] font-semibold flex items-center justify-center"
+          >
+            {me.initials}
+          </span>
+          <span className="flex flex-col leading-tight max-w-[16rem]">
+            <span className="text-xs font-semibold text-text-primary dark:text-white truncate">{me.name}</span>
+            <span className="text-[11px] text-text-secondary dark:text-slate-300 truncate">{me.roleLine}</span>
+          </span>
+        </div>
       </div>
     </header>
   );

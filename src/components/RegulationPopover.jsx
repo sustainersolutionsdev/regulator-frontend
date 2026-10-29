@@ -18,6 +18,10 @@
  * clipped by the timeline's sideways scroll. It flips above when there's more
  * room there, and scrolls inside itself when it is taller than the space.
  * It is rendered inside the regulation's row, so Tab moves on to the next row.
+ *
+ * T064 (Srinivas, Oct 28 / Oct 29): the Dashboard uses the same pop-up, a
+ * little wider, with each Business Unit's status below the details
+ * (children), so a regulation reads the same on both screens.
  */
 import { useEffect, useReducer, useRef } from 'react';
 import RegulationDetails from './RegulationDetails';
@@ -26,11 +30,11 @@ const WIDTH = 384;
 const GAP = 6;
 const MARGIN = 8;
 
-function placement(anchor) {
+function placement(anchor, preferredWidth) {
   const vw = window.innerWidth;
   const vh = window.innerHeight;
   const r = anchor.getBoundingClientRect();
-  const width = Math.min(WIDTH, vw - 2 * MARGIN);
+  const width = Math.min(preferredWidth, vw - 2 * MARGIN);
   const below = vh - r.bottom - GAP - MARGIN;
   const above = r.top - GAP - MARGIN;
   const left = Math.min(Math.max(r.left, MARGIN), vw - width - MARGIN);
@@ -49,6 +53,9 @@ export default function RegulationPopover({
   onEdit,
   onPointerEnter,
   onPointerLeave,
+  width = WIDTH,
+  showDashboardLink = true,
+  children,
 }) {
   const ref = useRef(null);
   const [, reposition] = useReducer((n) => n + 1, 0);
@@ -85,7 +92,7 @@ export default function RegulationPopover({
   }, [pinned, anchor, onClose]);
 
   if (!anchor || !anchor.isConnected) return null;
-  const style = placement(anchor);
+  const style = placement(anchor, width);
 
   return (
     <div
@@ -110,7 +117,15 @@ export default function RegulationPopover({
       }}
       className="z-50 overflow-y-auto rounded-md border px-4 py-3 shadow-xl bg-surface-card dark:bg-surface-card-dark border-border-strong dark:border-border-dark focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal"
     >
-      <RegulationDetails reg={reg} buLabelByCode={buLabelByCode} headingId={headingId} />
+      <RegulationDetails
+        reg={reg}
+        buLabelByCode={buLabelByCode}
+        headingId={headingId}
+        showDashboardLink={showDashboardLink}
+      >
+        {/* T064: the Dashboard adds each Business Unit's status, right after the main details. */}
+        {children}
+      </RegulationDetails>
 
       <div className="mt-3 flex items-center gap-3">
         {onEdit && (

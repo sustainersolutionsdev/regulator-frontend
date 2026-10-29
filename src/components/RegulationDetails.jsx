@@ -4,7 +4,8 @@
  *
  * Shared by the Roadmap pop-up and the monthly calendar's details, so both
  * show the same fields in the same order. Fields follow Srinivas's Add
- * Regulation form, plus record ID and dates (FR-0.8).
+ * Regulation form, plus dates (FR-0.8). T066 (Oct 29): the record ID is no
+ * longer shown; it is a system code, not something people need.
  *
  * No compliance status here (DL-8): the Roadmap and calendar are timeframe
  * views, and status lives on the Dashboard. "Open on the Dashboard" goes
@@ -31,7 +32,7 @@ function Field({ label, children }) {
   );
 }
 
-export default function RegulationDetails({ reg, buLabelByCode, headingId }) {
+export default function RegulationDetails({ reg, buLabelByCode, headingId, showDashboardLink = true, children }) {
   const { idToken } = useAuth();
   const [busyKey, setBusyKey] = useState(null);
   const [error, setError] = useState(null);
@@ -42,7 +43,9 @@ export default function RegulationDetails({ reg, buLabelByCode, headingId }) {
     const label = buLabelByCode[code];
     return label ? `${label} (${code})` : code;
   });
-  const docs = visibleDocuments(reg);
+  // T064: on the Dashboard each unit's documents are listed under its status,
+  // so this list keeps only the documents for the whole regulation.
+  const docs = visibleDocuments(reg).filter((d) => showDashboardLink || !d.buCode);
 
   const download = async (doc) => {
     if (busyKey) return; // aria-disabled, not disabled: focus must stay on the button
@@ -65,10 +68,6 @@ export default function RegulationDetails({ reg, buLabelByCode, headingId }) {
       {abbreviation && abbreviation !== reg.title && (
         <p className="text-xs text-text-secondary dark:text-slate-300 mt-0.5">{abbreviation}</p>
       )}
-      <p className="font-mono text-[11px] text-text-tertiary dark:text-slate-400 mt-1">
-        <span className="sr-only">Record ID </span>
-        {reg.id}
-      </p>
 
       <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
         <Field label="Due">{due ? formatDueDate(due) : 'Not set'}</Field>
@@ -89,6 +88,9 @@ export default function RegulationDetails({ reg, buLabelByCode, headingId }) {
         <Field label="Last updated">{formatTimestamp(reg.lastUpdated) || 'Unknown'}</Field>
       </dl>
 
+      {/* T064: the Dashboard's status by Business Unit, before the notes. */}
+      {children}
+
       <div className="mt-2.5 pt-2 border-t border-border-default dark:border-border-dark">
         <p className="text-label uppercase text-text-tertiary dark:text-slate-300">Notes</p>
         <p className="mt-0.5 text-xs text-text-primary dark:text-slate-200 whitespace-pre-line break-words">
@@ -98,7 +100,8 @@ export default function RegulationDetails({ reg, buLabelByCode, headingId }) {
 
       <div className="mt-2.5 pt-2 border-t border-border-default dark:border-border-dark">
         <p className="text-label uppercase text-text-tertiary dark:text-slate-300">
-          Documents{docs.length > 0 ? ` (${docs.length})` : ''}
+          {showDashboardLink ? 'Documents' : 'Documents for the whole regulation'}
+          {docs.length > 0 ? ` (${docs.length})` : ''}
         </p>
         {docs.length === 0 ? (
           <p className="mt-0.5 text-xs text-text-secondary dark:text-slate-300">None attached.</p>
@@ -130,6 +133,8 @@ export default function RegulationDetails({ reg, buLabelByCode, headingId }) {
         </div>
       </div>
 
+      {/* T064: on the Dashboard the pop-up shows each unit's status itself. */}
+      {showDashboardLink && (
       <p className="mt-2.5 pt-2 border-t border-border-default dark:border-border-dark text-xs text-text-secondary dark:text-slate-300">
         Status by Business Unit is on the Dashboard.{' '}
         <Link
@@ -139,6 +144,7 @@ export default function RegulationDetails({ reg, buLabelByCode, headingId }) {
           Open on the Dashboard
         </Link>
       </p>
+      )}
     </div>
   );
 }

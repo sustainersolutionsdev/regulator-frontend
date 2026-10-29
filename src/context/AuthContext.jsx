@@ -6,6 +6,7 @@ import {
   signOut,
 } from 'firebase/auth';
 import { auth } from '../lib/firebase';
+import { apiRequest } from '../api/apiClient';
 
 const AuthContext = createContext(null);
 
@@ -14,6 +15,23 @@ export function AuthProvider({ children }) {
   const [idToken, setIdToken] = useState(null);
   const [claims, setClaims] = useState(null); // { role, tenant_id, businessUnitIds }
   const [loading, setLoading] = useState(true);
+  // T066 (Niranjan, Oct 27): the person's name, shown with their role.
+  const [profile, setProfile] = useState(null); // { displayName, email }
+
+  useEffect(() => {
+    if (!idToken) return undefined;
+    let cancelled = false;
+    apiRequest('/me', { idToken })
+      .then((me) => {
+        if (!cancelled) setProfile({ displayName: me.displayName || '', email: me.email || '' });
+      })
+      .catch(() => {
+        // The name is a nicety; the email from sign-in stands in.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [idToken]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -30,6 +48,7 @@ export function AuthProvider({ children }) {
         setUser(null);
         setIdToken(null);
         setClaims(null);
+        setProfile(null);
       }
       setLoading(false);
     });
@@ -47,7 +66,7 @@ export function AuthProvider({ children }) {
   // for a current token on every request.
 
   return (
-    <AuthContext.Provider value={{ user, idToken, claims, loading, login, logout, resetPassword }}>
+    <AuthContext.Provider value={{ user, idToken, claims, profile, loading, login, logout, resetPassword }}>
       {children}
     </AuthContext.Provider>
   );
