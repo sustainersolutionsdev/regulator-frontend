@@ -73,7 +73,6 @@ function displayName(reg) {
 
 function RoadmapRow({ reg, years, todayPosition, open, onHover, onLeave, onToggle, onClose, buLabelByCode, onEdit, onEditFromPopover }) {
   const name = displayName(reg);
-  const hasAbbreviation = name !== reg.title;
   const isOpen = open?.id === reg.id;
   const popoverId = `roadmap-pop-${reg.id}`;
   const dateLabelSide = reg.position > 85 ? 'right-full mr-1' : 'left-full ml-1';
@@ -100,7 +99,6 @@ function RoadmapRow({ reg, years, todayPosition, open, onHover, onLeave, onToggl
             type="button"
             {...triggerProps}
             aria-label={`${reg.title}: details and documents`}
-            title={hasAbbreviation ? reg.title : undefined}
             className="flex-1 min-w-0 text-left text-body font-semibold text-text-primary dark:text-white truncate rounded hover:text-brand-teal dark:hover:text-teal-300 hover:underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal"
           >
             {name}

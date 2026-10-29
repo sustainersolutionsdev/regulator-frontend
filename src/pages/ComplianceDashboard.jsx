@@ -1,15 +1,19 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { fetchRegulations, RegulationApiError } from '../api/regulationsApi';
 import { fetchBusinessUnits } from '../api/businessUnitsApi';
+import { fetchUsers } from '../api/usersApi';
 import { fetchDashboardView, saveDashboardView } from '../api/preferencesApi';
 import DownloadMenu from '../components/DownloadMenu';
 import ErrorBanner from '../components/ErrorBanner';
 import CountryFlag from '../components/CountryFlag';
 import RegulationFilterBar from '../components/RegulationFilterBar';
 import StatusSwatch, { StatusLegend } from '../components/StatusSwatch';
-import StatusUpdatePanel from '../components/StatusUpdatePanel';
+import RegulationPopover from '../components/RegulationPopover';
+import UnitStatusDialog from '../components/UnitStatusDialog';
+import UnitStatusSummary from '../components/UnitStatusSummary';
 import { statusLabel } from '../constants/status';
 import { formatDueDate, parseDueDate } from '../utils/roadmapDates';
 import {
@@ -26,6 +30,7 @@ import {
   displayName,
   formatTimestamp,
   nextSort,
+  peopleById,
   sortFromSearchParams,
   sortRegulations,
   unitEntry,
@@ -66,9 +71,15 @@ import { saveBlob } from '../utils/saveBlob';
  * view is fetched and applied; every later change is saved to the server
  * (debounced), so it follows them to any computer.
  *
- * Update / View opens StatusUpdatePanel: Admin/SME edit every unit; Users
- * edit their own units' status, explanation and documents only, and see
- * other units read-only with an on-screen message (FR-2.3).
+ * T064/T065 (Srinivas, Oct 28; mockup approved Oct 29) replace the Update /
+ * View panel:
+ *  - Hovering or clicking a regulation's name opens the same pop-up as the
+ *    Roadmap, plus every unit's status, latest note, who changed it last
+ *    (with email) and its documents (UnitStatusSummary).
+ *  - In the Status column, the units the person may update (Admin/SME: all;
+ *    User: their own) are buttons that open the unit's pop-up
+ *    (UnitStatusDialog): status, note and document saved together, with the
+ *    unit's activity history. Other units are shown, not clickable (FR-2.3).
  *
  * Download (T021, FR-2.4): every role can download what is on screen -
  * same view, filters and sort - as a PDF or an Excel file. Built in the
@@ -176,23 +187,30 @@ function ViewSwitch({ view, onChange }) {
   );
 }
 
-function RegulationCell({ reg, action }) {
+/**
+ * T064: the regulation's name opens its pop-up - a preview on hover, pinned on
+ * click or Enter, as on the Roadmap. T066: no record ID.
+ */
+function RegulationCell({ reg, isOpen, onHover, onLeave, onToggle, onClose }) {
   const name = displayName(reg);
   return (
     <th scope="row" className={`${CELL} ${STICKY} text-left font-normal min-w-[12rem] max-w-[18rem]`}>
-      {/* Oct 26 feedback (T062): the name once; the full title on hover and in Update / View. */}
-      <span className="block font-semibold text-text-primary dark:text-white truncate" title={reg.title}>
+      <button
+        type="button"
+        data-reg-trigger={reg.id}
+        aria-haspopup="dialog"
+        aria-expanded={isOpen}
+        aria-label={`${reg.title}: details and every unit's status`}
+        onMouseEnter={(e) => onHover(reg.id, e.currentTarget)}
+        onMouseLeave={onLeave}
+        onClick={(e) => onToggle(reg.id, e.currentTarget)}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape' && isOpen) onClose({ restoreFocus: false });
+        }}
+        className="block max-w-full text-left font-semibold text-text-primary dark:text-white truncate rounded underline decoration-dotted decoration-slate-400 underline-offset-4 hover:text-brand-teal dark:hover:text-teal-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal"
+      >
         {name}
-      </span>
-      {name !== reg.title && <span className="sr-only">{reg.title}</span>}
-      {/* In the pinned column so it stays reachable when the table scrolls sideways. */}
-      <span className="flex items-center gap-2 mt-1">
-        {action}
-        <span className="font-mono text-[11px] text-text-tertiary dark:text-slate-400 truncate" title={`Record ID ${reg.id}`}>
-          <span className="sr-only">Record ID </span>
-          {reg.id}
-        </span>
-      </span>
+      </button>
     </th>
   );
 }
@@ -238,44 +256,54 @@ function DocsCell({ docs }) {
   );
 }
 
-function UpdateButton({ label, canEdit, onOpen }) {
-  return (
-    <button
+/**
+ * T065: one unit's status in the Status column. A unit the person may update
+ * is a button (underlined, with a pencil) that opens its pop-up; any other
+ * unit is shown, not clickable.
+ */
+function UnitChip({ reg, bu, buLabelByCode, canEdit, onOpen }) {
+  const entry = unitEntry(reg, bu);
+  const name = buLabelByCode[bu] || bu;
+  const base = 'inline-flex items-center gap-1 whitespace-nowrap text-xs rounded-full px-2 py-0.5';
+  if (canEdit) {
+    return (
+      <button
         type="button"
         onClick={onOpen}
-        aria-label={`${canEdit ? 'Update' : 'View'} status: ${label}`}
-        className="flex-none text-xs px-2 py-0.5 rounded border border-border-default dark:border-border-dark text-text-secondary dark:text-slate-300 hover:border-brand-teal hover:text-brand-teal dark:hover:border-teal-300 dark:hover:text-teal-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal"
+        aria-label={`${name}: ${statusLabel(entry.status)}. Update ${name}`}
+        className={`${base} border border-brand-teal dark:border-teal-300 text-brand-teal dark:text-teal-300 underline underline-offset-2 hover:bg-brand-teal hover:text-white dark:hover:bg-teal-300 dark:hover:text-brand-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal`}
       >
-        {canEdit ? 'Update' : 'View'}
-    </button>
+        <StatusSwatch status={entry.status} size="sm" decorative />
+        {name}
+        <svg aria-hidden="true" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 20h9" />
+          <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+        </svg>
+      </button>
+    );
+  }
+  return (
+    <span className={`${base} border border-border-default dark:border-border-dark text-text-secondary dark:text-slate-300`}>
+      <StatusSwatch status={entry.status} size="sm" decorative />
+      <span aria-hidden="true">{name}</span>
+      <span className="sr-only">
+        {name}: {statusLabel(entry.status)}
+      </span>
+    </span>
   );
 }
 
-/** By regulation: each unit's colour side by side, labelled by unit code. */
-function UnitStatusList({ reg, buLabelByCode }) {
+/** By regulation: every unit's status side by side. */
+function UnitStatusList({ reg, buLabelByCode, canEdit, onOpenUnit }) {
   const units = reg.businessUnitIds || [];
   if (!units.length) return <Blank />;
   return (
-    <ul className="flex flex-wrap gap-x-3 gap-y-1">
-      {units.map((bu) => {
-        const entry = unitEntry(reg, bu);
-        const name = buLabelByCode[bu] || bu;
-        const note = (entry.note || '').trim();
-        return (
-          <li
-            key={bu}
-            className="inline-flex items-center gap-1 whitespace-nowrap text-xs text-text-secondary dark:text-slate-300"
-            title={`${name}: ${statusLabel(entry.status)}${note ? ` — ${note}` : ''}`}
-          >
-            <StatusSwatch status={entry.status} size="sm" decorative />
-            <span aria-hidden="true">{bu}</span>
-            <span className="sr-only">
-              {name}: {statusLabel(entry.status)}
-              {note ? `. ${note}` : ''}
-            </span>
-          </li>
-        );
-      })}
+    <ul className="flex flex-wrap gap-1.5">
+      {units.map((bu) => (
+        <li key={bu}>
+          <UnitChip reg={reg} bu={bu} buLabelByCode={buLabelByCode} canEdit={canEdit(bu)} onOpen={() => onOpenUnit(reg.id, bu)} />
+        </li>
+      ))}
     </ul>
   );
 }
@@ -283,14 +311,18 @@ function UnitStatusList({ reg, buLabelByCode }) {
 export default function ComplianceDashboard() {
   const { idToken, claims, user } = useAuth();
   const isAdminOrSme = claims?.role === 'admin' || claims?.role === 'sme';
-  const myUnits = claims?.businessUnitIds || [];
+  const myUnits = useMemo(() => claims?.businessUnitIds || [], [claims]);
 
   const [regulations, setRegulations] = useState([]);
   const [businessUnits, setBusinessUnits] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
   const [reloadKey, setReloadKey] = useState(0);
-  const [editing, setEditing] = useState(null); // { id, focusBu }
+  const [people, setPeople] = useState({}); // uid -> { name, email } (T064/T065)
+  // T064: the open regulation pop-up { id, anchor, pinned }; T065: the open unit pop-up { id, bu }.
+  const [open, setOpen] = useState(null);
+  const closeTimer = useRef(null);
+  const [unitDialog, setUnitDialog] = useState(null);
   // T025: the regulation an alert email linked to (?reg=), read once on open.
   const [linkedRegId, setLinkedRegId] = useState(() => new URLSearchParams(window.location.search).get('reg'));
 
@@ -375,11 +407,17 @@ export default function ComplianceDashboard() {
   useEffect(() => {
     if (!idToken) return undefined;
     let cancelled = false;
-    Promise.all([fetchRegulations(idToken), fetchBusinessUnits(idToken)])
-      .then(([regList, buList]) => {
+    Promise.all([
+      fetchRegulations(idToken),
+      fetchBusinessUnits(idToken),
+      // Names for "who changed it"; the Dashboard still works without them.
+      fetchUsers(idToken).catch(() => []),
+    ])
+      .then(([regList, buList, userList]) => {
         if (cancelled) return;
         setRegulations(regList);
         setBusinessUnits(buList);
+        setPeople(peopleById(userList));
         setLoadError(null);
       })
       .catch((err) => {
@@ -442,17 +480,58 @@ export default function ComplianceDashboard() {
     [rows, view, businessUnits, filters, filterOptions, sortDescription, user, allRows.length]
   );
 
-  const canEditAny = (reg) => isAdminOrSme || (reg.businessUnitIds || []).some((bu) => myUnits.includes(bu));
+  const canEditUnit = useCallback((bu) => isAdminOrSme || myUnits.includes(bu), [isAdminOrSme, myUnits]);
 
-  // T025: a panel opened from a row takes precedence over the emailed link.
+  // --- T064: regulation pop-up (same behaviour as the Roadmap) --------------
+  const cancelClose = () => clearTimeout(closeTimer.current);
+  useEffect(() => () => clearTimeout(closeTimer.current), []);
+  const hoverOpen = (id, anchor) => {
+    cancelClose();
+    setOpen((o) => (o?.pinned ? o : { id, anchor, pinned: false }));
+  };
+  const hoverLeave = () => {
+    cancelClose();
+    closeTimer.current = setTimeout(() => setOpen((o) => (o && !o.pinned ? null : o)), 200);
+  };
+  const toggleOpen = (id, anchor) => {
+    cancelClose();
+    setOpen((o) => (o?.pinned && o.id === id ? null : { id, anchor, pinned: true }));
+  };
+  const closePopover = useCallback(
+    ({ restoreFocus } = {}) => {
+      clearTimeout(closeTimer.current);
+      if (restoreFocus) open?.anchor?.focus();
+      setOpen(null);
+    },
+    [open]
+  );
+  const openUnit = (id, bu) => {
+    clearTimeout(closeTimer.current);
+    setOpen(null);
+    setUnitDialog({ id, bu });
+  };
+
+  // T025: an alert email's link opens that regulation's pop-up once the data
+  // is in. Its name in the table anchors it; if filters hide the row, the
+  // table heading does.
   const linkedReg = linkedRegId && !loading ? onDashboard.find((r) => r.id === linkedRegId) : null;
   const linkedMissing = Boolean(linkedRegId) && !loading && !loadError && !linkedReg;
-  const panel = editing || (linkedReg ? { id: linkedReg.id, focusBu: null } : null);
-  const editingReg = panel ? onDashboard.find((r) => r.id === panel.id) : null;
-  const closePanel = () => {
-    setEditing(null);
-    setLinkedRegId(null);
-  };
+  useEffect(() => {
+    if (!linkedReg) return undefined;
+    const frame = requestAnimationFrame(() => {
+      const anchor =
+        document.querySelector(`[data-reg-trigger="${CSS.escape(linkedReg.id)}"]`) ||
+        document.getElementById('dashboard-table-heading');
+      anchor?.scrollIntoView?.({ block: 'center' });
+      setOpen({ id: linkedReg.id, anchor, pinned: true });
+      setLinkedRegId(null);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [linkedReg]);
+
+  const openReg = open ? onDashboard.find((r) => r.id === open.id) : null;
+  const dialogReg = unitDialog ? onDashboard.find((r) => r.id === unitDialog.id) : null;
+  const reload = useCallback(() => setReloadKey((k) => k + 1), []);
 
   return (
     <div className="space-y-4">
@@ -516,9 +595,9 @@ export default function ComplianceDashboard() {
         {/* Oct 26 feedback, item 6: how people update the Dashboard. */}
         {!loading && !loadError && filtered.length > 0 && (
           <p className="px-5 py-2 text-xs text-text-secondary dark:text-slate-300 border-b border-border-default dark:border-border-dark">
-            To set a status, write an explanation or add a document, click <strong>Update</strong> on a regulation&rsquo;s
-            row (<strong>View</strong> if it isn&rsquo;t one of your Business Units). Hover over shortened text to read all
-            of it. The table scrolls sideways for more columns.
+            Hover over or click a regulation&rsquo;s name for its details and every Business Unit&rsquo;s status. To
+            update a unit, click it in the Status column: your units are underlined and marked with a pencil. Hover
+            over shortened text to read all of it. The table scrolls sideways for more columns.
           </p>
         )}
 
@@ -608,28 +687,24 @@ export default function ComplianceDashboard() {
                   if (view === 'bu') {
                     const entry = unitEntry(reg, reg.rowBu);
                     const unitName = buLabelByCode[reg.rowBu] || reg.rowBu;
-                    const canEdit = isAdminOrSme || myUnits.includes(reg.rowBu);
                     const updated = formatTimestamp(entry.updatedAt) || formatTimestamp(reg.lastUpdated);
                     return (
                       <tr key={reg.rowKey} className="border-t border-border-default dark:border-border-dark">
-                        <RegulationCell
-                          reg={reg}
-                          action={
-                            <UpdateButton
-                              label={`${reg.title}, ${unitName}`}
-                              canEdit={canEdit}
-                              onOpen={() => setEditing({ id: reg.id, focusBu: reg.rowBu })}
-                            />
-                          }
-                        />
+                        <RegulationCell reg={reg} isOpen={open?.id === reg.id} onHover={hoverOpen} onLeave={hoverLeave} onToggle={toggleOpen} onClose={closePopover} />
                         <td className={`${CELL} whitespace-nowrap`}>
                           {unitName}
                           {buLabelByCode[reg.rowBu] && (
                             <span className="text-xs text-text-tertiary dark:text-slate-400"> ({reg.rowBu})</span>
                           )}
                         </td>
-                        <td className={`${CELL} text-center`}>
-                          <StatusSwatch status={entry.status} />
+                        <td className={CELL}>
+                          <UnitChip
+                            reg={reg}
+                            bu={reg.rowBu}
+                            buLabelByCode={buLabelByCode}
+                            canEdit={canEditUnit(reg.rowBu)}
+                            onOpen={() => openUnit(reg.id, reg.rowBu)}
+                          />
                         </td>
                         <TextCell value={entry.note} label="No explanation" wide />
                         {dueCell}
@@ -645,22 +720,13 @@ export default function ComplianceDashboard() {
 
                   return (
                     <tr key={reg.id} className="border-t border-border-default dark:border-border-dark">
-                      <RegulationCell
-                        reg={reg}
-                        action={
-                          <UpdateButton
-                            label={reg.title}
-                            canEdit={canEditAny(reg)}
-                            onOpen={() => setEditing({ id: reg.id, focusBu: null })}
-                          />
-                        }
-                      />
+                      <RegulationCell reg={reg} isOpen={open?.id === reg.id} onHover={hoverOpen} onLeave={hoverLeave} onToggle={toggleOpen} onClose={closePopover} />
                       {dueCell}
                       <TextCell value={reg.domain} />
                       <CountryCell country={reg.country} />
                       <TextCell value={reg.region} />
-                      <td className={`${CELL} min-w-[10rem]`}>
-                        <UnitStatusList reg={reg} buLabelByCode={buLabelByCode} />
+                      <td className={`${CELL} min-w-[12rem]`}>
+                        <UnitStatusList reg={reg} buLabelByCode={buLabelByCode} canEdit={canEditUnit} onOpenUnit={openUnit} />
                       </td>
                       <TextCell value={reg.notes} label="No notes" wide />
                       <DocsCell docs={visibleDocuments(reg)} />
@@ -686,19 +752,45 @@ export default function ComplianceDashboard() {
               <dt className="font-semibold text-text-primary dark:text-slate-200">Explanation</dt>
               <dd>Why a Business Unit has its status, written by that unit&rsquo;s users or Admin/SME. Each unit has its own.</dd>
               <dt className="font-semibold text-text-primary dark:text-slate-200">Docs</dt>
-              <dd>Supporting files for the regulation, stored privately for your company. Use a row&rsquo;s Update or View button to download or add one.</dd>
+              <dd>Supporting files for the regulation, stored privately for your company. Download them from the regulation&rsquo;s pop-up; add one from your unit&rsquo;s pop-up in the Status column.</dd>
             </dl>
           </div>
         )}
       </section>
 
-      {editingReg && (
-        <StatusUpdatePanel
-          regulation={editingReg}
-          businessUnits={businessUnits}
-          focusBu={panel.focusBu}
-          onClose={closePanel}
-          onChanged={() => setReloadKey((k) => k + 1)}
+      {/* T064: rendered at the page level so the table's sticky cells never cover it. */}
+      {openReg &&
+        createPortal(
+          <RegulationPopover
+            reg={openReg}
+            anchor={open.anchor}
+            pinned={open.pinned}
+            buLabelByCode={buLabelByCode}
+            onClose={closePopover}
+            onPointerEnter={cancelClose}
+            onPointerLeave={hoverLeave}
+            width={420}
+            showDashboardLink={false}
+          >
+            <UnitStatusSummary
+              reg={openReg}
+              buLabelByCode={buLabelByCode}
+              people={people}
+              canEdit={canEditUnit}
+              onOpenUnit={(bu) => openUnit(openReg.id, bu)}
+            />
+          </RegulationPopover>,
+          document.body
+        )}
+
+      {dialogReg && (
+        <UnitStatusDialog
+          regulation={dialogReg}
+          bu={unitDialog.bu}
+          label={buLabelByCode[unitDialog.bu] || unitDialog.bu}
+          people={people}
+          onClose={() => setUnitDialog(null)}
+          onChanged={reload}
         />
       )}
     </div>

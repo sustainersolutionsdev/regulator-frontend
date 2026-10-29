@@ -58,7 +58,7 @@ function orDash(value) {
 function regulationText(row) {
   const parts = [row.name];
   if (row.name !== row.title) parts.push(row.title);
-  parts.push(`ID ${row.id}`);
+  // T066 (Oct 29): no record ID on the printed page; the Excel file keeps it for reference.
   return pdfSafe(parts.join('\n'));
 }
 

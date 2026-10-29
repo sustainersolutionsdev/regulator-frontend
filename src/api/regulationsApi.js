@@ -103,7 +103,9 @@ export function removeRegulation(idToken, regulationId) {
 /**
  * updateBuStatus — T020 (DL-8). One Business Unit's status and/or
  * explanation: `changes` = { status?: "compliant"|"pending"|"action_needed"|null,
- * note?: string }. Users: own units only (403 otherwise).
+ * note?: string, document_keys?: string[] }. Users: own units only (403 otherwise).
+ * T065: document_keys are documents just uploaded for this unit, saved with
+ * the status and note as one activity entry.
  */
 export function updateBuStatus(idToken, regulationId, buCode, changes) {
   return apiRequest(
@@ -156,4 +158,25 @@ export async function downloadRegulationDocument(idToken, regulationId, doc) {
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/**
+ * fetchUnitActivity — T065 (Srinivas, Oct 29). Who changed what on a
+ * regulation's Business Units, newest first: status changes, notes and the
+ * documents saved with them, each with the person's name and email. Every
+ * role can read every unit's history. buCode narrows it to one unit.
+ */
+export function fetchUnitActivity(idToken, regulationId, buCode = null) {
+  return apiRequest(`/regulations/${encodeURIComponent(regulationId)}/activity`, {
+    idToken,
+    params: buCode ? { bu_code: buCode } : undefined,
+  });
+}
+
+/** removeActivityNote — T065. Your own note only; kept on the server, hidden from screens. */
+export function removeActivityNote(idToken, regulationId, entryId) {
+  return apiRequest(
+    `/regulations/${encodeURIComponent(regulationId)}/activity/${encodeURIComponent(entryId)}`,
+    { method: 'DELETE', idToken }
+  );
 }

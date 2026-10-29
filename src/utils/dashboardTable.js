@@ -105,6 +105,48 @@ export function formatTimestamp(value) {
   return date ? date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '';
 }
 
+/** T065: date and time for the activity history, e.g. "Oct 27, 2026, 4:12 PM". */
+export function formatDateTime(value) {
+  const date = parseTimestamp(value);
+  return date
+    ? date.toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+    : '';
+}
+
+/**
+ * T064/T065: uid -> { name, email } from GET /users, for "who changed it".
+ * Someone no longer in the directory shows as "Former user".
+ */
+export function peopleById(users) {
+  return Object.fromEntries(
+    (users || []).map((u) => [u.id, { name: (u.displayName || '').trim() || u.email || 'Unknown', email: u.email || '' }])
+  );
+}
+
+export function personFor(people, uid) {
+  return (uid && people[uid]) || { name: uid ? 'Former user' : 'Unknown', email: '' };
+}
+
+/** Initials for the small avatar circles: "Priya Shah" -> "PS". */
+export function initialsOf(name) {
+  return (
+    String(name || '')
+      .replace(/@.*/, '')
+      .split(/[\s._-]+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0].toUpperCase())
+      .join('') || '?'
+  );
+}
+
+/** T065: a unit's own documents (not the regulation-wide ones), newest first. */
+export function unitDocuments(reg, bu) {
+  return (reg.documents || [])
+    .filter((d) => !d.hidden && d.buCode === bu)
+    .sort((a, b) => (parseTimestamp(b.uploadedAt)?.getTime() || 0) - (parseTimestamp(a.uploadedAt)?.getTime() || 0));
+}
+
 function text(value) {
   return String(value ?? '').trim();
 }
