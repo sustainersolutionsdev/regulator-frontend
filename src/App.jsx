@@ -7,6 +7,7 @@ import AddRegulationForm from './components/AddRegulationForm';
 import RegulationRoadmap from './pages/RegulationRoadmap';
 import MonthlyCalendar from './pages/MonthlyCalendar';
 import ComplianceDashboard from './pages/ComplianceDashboard';
+import InsightsPage from './pages/InsightsPage';
 import EmailAlertsSettings from './pages/EmailAlertsSettings';
 import LoginScreen, { AccountNotReady } from './pages/LoginScreen';
 import { isAdminOrSme } from './constants/access';
@@ -41,6 +42,9 @@ export default function App() {
         <Route path="/roadmap" element={<RegulationRoadmap />} />
         <Route path="/roadmap/calendar" element={<MonthlyCalendar />} />
         <Route path="/dashboard" element={<ComplianceDashboard />} />
+        {/* T030: Insights, every role (DL-18). The old address redirects. */}
+        <Route path="/insights" element={<InsightsPage />} />
+        <Route path="/ai-insights" element={<Navigate to="/insights" replace />} />
         <Route path="/settings" element={adminOnly(<BusinessUnitSetup />)} />
         <Route path="/directory" element={<PeopleDirectory />} />
         <Route path="/add-regulation" element={adminOnly(<AddRegulationForm />)} />
