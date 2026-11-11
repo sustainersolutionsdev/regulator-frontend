@@ -279,7 +279,7 @@ export default function InsightsPage() {
           group={summaryGroup}
           groupLabel={summaryGroup === 'all' ? 'Everything in view' : statusName(summaryGroup === 'not_set' ? NOT_SET : summaryGroup)}
           filters={filters}
-          viewLabel={`due dates ${range}${filtered ? ', with filters' : ''}`}
+          viewLabel={`due dates ${range}${countActiveFilters({ ...filters, dueFrom: '', dueTo: '' }) > 0 ? ', with filters' : ''}`}
           onClose={() => setSummaryGroup(null)}
         />
       )}
