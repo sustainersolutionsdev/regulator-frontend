@@ -19,3 +19,19 @@ export function fetchRegulationSummary(idToken, regulationId) {
 export function fetchAiStatus(idToken) {
   return apiRequest('/ai/status', { idToken });
 }
+
+/**
+ * fetchInsightSummary - T031. The AI summary of one Compliance Overview row
+ * on Insights (group: "compliant" | "pending" | "action_needed" | "not_set",
+ * or "all" for the whole view, FR-4.6), for the page's filters. The server
+ * applies the filters itself. Same timing as above: the first open can take
+ * up to ~30 s; the same view reopens at once until something in it changes.
+ */
+export function fetchInsightSummary(idToken, group, filters) {
+  const { q, domain, bu, country, region, dueFrom, dueTo, docs } = filters;
+  return apiRequest('/insights/summary', {
+    method: 'POST',
+    idToken,
+    body: { group, filters: { q, domain, bu, country, region, dueFrom, dueTo, docs } },
+  });
+}
