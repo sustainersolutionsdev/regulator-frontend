@@ -10,7 +10,7 @@ const APP_COMMIT = import.meta.env.VITE_APP_COMMIT || '';
 const NAV_ITEMS = [
   { path: '/roadmap', label: 'Roadmap', title: 'Regulation Roadmap' },
   { path: '/dashboard', label: 'Dashboard', title: 'Compliance Dashboard' },
-  { path: '/ai-insights', label: 'AI Insights' },
+  { path: '/insights', label: 'Insights', title: 'Insights' }, // T030 (DL-18: named Insights)
   { path: '/add-regulation', label: 'Add Regulation' },
   { path: '/directory', label: 'Users / Directory' },
   { path: '/settings', label: 'Settings', title: 'Tenant & Business Unit Setup' },

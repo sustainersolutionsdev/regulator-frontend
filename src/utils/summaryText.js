@@ -36,3 +36,24 @@ export function summaryToText(summary, regulation) {
   lines.push('', summary.disclaimer);
   return lines.join('\n');
 }
+
+/** T031: an Insights summary as plain text, for Copy (always with the disclaimer). */
+export function insightSummaryToText(summary, viewLabel) {
+  const lines = [`AI summary: ${summary.groupLabel} (${viewLabel})`];
+  const when = generatedText(summary.generatedAt);
+  if (when) lines.push(`Generated ${when}`);
+  lines.push('', summary.short);
+  if (summary.overview) lines.push('', summary.overview);
+  if (summary.entries?.length) {
+    lines.push('');
+    for (const e of summary.entries) {
+      const due = e.dueDate ? `, due ${e.dueDate}` : '';
+      lines.push(`- ${e.name} · ${e.unit} · ${e.statusLabel}${due}: ${e.text}${contactText(e.contacts)}`);
+    }
+  }
+  if (summary.moreCount) {
+    lines.push('', `${summary.moreCount} more not covered in detail: ${summary.moreNames.join('; ')}${summary.moreCount > summary.moreNames.length ? '; …' : ''}`);
+  }
+  if (summary.aiGenerated) lines.push('', summary.disclaimer);
+  return lines.join('\n');
+}
