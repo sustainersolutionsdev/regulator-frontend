@@ -8,6 +8,8 @@ import RegulationFilterBar from '../components/RegulationFilterBar';
 import RoadmapViewSwitch from '../components/RoadmapViewSwitch';
 import RegulationEditPanel from '../components/RegulationEditPanel';
 import RegulationPopover from '../components/RegulationPopover';
+import AiSummaryButton from '../components/AiSummaryButton';
+import AiSummaryDialog from '../components/AiSummaryDialog';
 import CountryFlag from '../components/CountryFlag';
 import {
   applyFilters,
@@ -71,7 +73,7 @@ function displayName(reg) {
   return (reg.abbreviatedTitle || '').trim() || reg.title;
 }
 
-function RoadmapRow({ reg, years, todayPosition, open, onHover, onLeave, onToggle, onClose, buLabelByCode, onEdit, onEditFromPopover }) {
+function RoadmapRow({ reg, years, todayPosition, open, onHover, onLeave, onToggle, onClose, buLabelByCode, onEdit, onEditFromPopover, onSummary }) {
   const name = displayName(reg);
   const isOpen = open?.id === reg.id;
   const popoverId = `roadmap-pop-${reg.id}`;
@@ -103,6 +105,8 @@ function RoadmapRow({ reg, years, todayPosition, open, onHover, onLeave, onToggl
           >
             {name}
           </button>
+          {/* T029: the AI summary of this regulation (same summary as on the Dashboard). */}
+          <AiSummaryButton reg={reg} onOpen={onSummary} />
           {onEdit && (
             <button
               type="button"
@@ -191,6 +195,7 @@ export default function RegulationRoadmap() {
   const [open, setOpen] = useState(null);
   const closeTimer = useRef(null);
   const [editing, setEditing] = useState(null);
+  const [summaryFor, setSummaryFor] = useState(null); // T029: the regulation whose AI summary is open
   // Bumping this re-runs the load effect after an edit or removal.
   const [reloadKey, setReloadKey] = useState(0);
 
@@ -426,6 +431,10 @@ export default function RegulationRoadmap() {
                       onLeave={hoverLeave}
                       onToggle={(anchor) => toggleOpen(reg.id, anchor)}
                       onClose={closePopover}
+                      onSummary={() => {
+                        closePopover();
+                        setSummaryFor(reg);
+                      }}
                       onEdit={canEdit ? () => setEditing(reg) : undefined}
                       onEditFromPopover={
                         canEdit
@@ -458,13 +467,15 @@ export default function RegulationRoadmap() {
                 Today
               </span>
             )}
-            <span>Hover over or select a regulation&rsquo;s name or marker for its details and documents.</span>
+            <span>Hover over or select a regulation&rsquo;s name or marker for its details and documents, or select AI beside its name for an AI summary.</span>
             {outsideParts.length > 0 && (
               <span className="sm:ml-auto">Not in this window: {outsideParts.join(' · ')}</span>
             )}
           </div>
         )}
       </section>
+
+      {summaryFor && <AiSummaryDialog regulation={summaryFor} onClose={() => setSummaryFor(null)} />}
 
       {editing && (
         <RegulationEditPanel

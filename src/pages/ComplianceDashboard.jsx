@@ -12,6 +12,8 @@ import CountryFlag from '../components/CountryFlag';
 import RegulationFilterBar from '../components/RegulationFilterBar';
 import StatusSwatch, { StatusLegend } from '../components/StatusSwatch';
 import RegulationPopover from '../components/RegulationPopover';
+import AiSummaryButton from '../components/AiSummaryButton';
+import AiSummaryDialog from '../components/AiSummaryDialog';
 import UnitStatusDialog from '../components/UnitStatusDialog';
 import UnitStatusSummary from '../components/UnitStatusSummary';
 import { statusLabel } from '../constants/status';
@@ -191,26 +193,30 @@ function ViewSwitch({ view, onChange }) {
  * T064: the regulation's name opens its pop-up - a preview on hover, pinned on
  * click or Enter, as on the Roadmap. T066: no record ID.
  */
-function RegulationCell({ reg, isOpen, onHover, onLeave, onToggle, onClose }) {
+function RegulationCell({ reg, isOpen, onHover, onLeave, onToggle, onClose, onSummary }) {
   const name = displayName(reg);
   return (
     <th scope="row" className={`${CELL} ${STICKY} text-left font-normal min-w-[12rem] max-w-[18rem]`}>
-      <button
-        type="button"
-        data-reg-trigger={reg.id}
-        aria-haspopup="dialog"
-        aria-expanded={isOpen}
-        aria-label={`${reg.title}: details and every unit's status`}
-        onMouseEnter={(e) => onHover(reg.id, e.currentTarget)}
-        onMouseLeave={onLeave}
-        onClick={(e) => onToggle(reg.id, e.currentTarget)}
-        onKeyDown={(e) => {
-          if (e.key === 'Escape' && isOpen) onClose({ restoreFocus: false });
-        }}
-        className="block max-w-full text-left font-semibold text-text-primary dark:text-white truncate rounded underline decoration-dotted decoration-slate-400 underline-offset-4 hover:text-brand-teal dark:hover:text-teal-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal"
-      >
-        {name}
-      </button>
+      <div className="flex items-center gap-1.5">
+        <button
+          type="button"
+          data-reg-trigger={reg.id}
+          aria-haspopup="dialog"
+          aria-expanded={isOpen}
+          aria-label={`${reg.title}: details and every unit's status`}
+          onMouseEnter={(e) => onHover(reg.id, e.currentTarget)}
+          onMouseLeave={onLeave}
+          onClick={(e) => onToggle(reg.id, e.currentTarget)}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape' && isOpen) onClose({ restoreFocus: false });
+          }}
+          className="min-w-0 flex-1 text-left font-semibold text-text-primary dark:text-white truncate rounded underline decoration-dotted decoration-slate-400 underline-offset-4 hover:text-brand-teal dark:hover:text-teal-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal"
+        >
+          {name}
+        </button>
+        {/* T029: the AI summary of this regulation (same summary as on the Roadmap). */}
+        <AiSummaryButton reg={reg} onOpen={onSummary} />
+      </div>
     </th>
   );
 }
@@ -323,6 +329,7 @@ export default function ComplianceDashboard() {
   const [open, setOpen] = useState(null);
   const closeTimer = useRef(null);
   const [unitDialog, setUnitDialog] = useState(null);
+  const [summaryFor, setSummaryFor] = useState(null); // T029: the regulation whose AI summary is open
   // T025: the regulation an alert email linked to (?reg=), read once on open.
   const [linkedRegId, setLinkedRegId] = useState(() => new URLSearchParams(window.location.search).get('reg'));
 
@@ -510,6 +517,12 @@ export default function ComplianceDashboard() {
     setOpen(null);
     setUnitDialog({ id, bu });
   };
+  // T029: the AI summary of one regulation (the same stored summary as the Roadmap's).
+  const openSummary = (reg) => {
+    clearTimeout(closeTimer.current);
+    setOpen(null);
+    setSummaryFor(reg);
+  };
 
   // T025: an alert email's link opens that regulation's pop-up once the data
   // is in. Its name in the table anchors it; if filters hide the row, the
@@ -595,7 +608,7 @@ export default function ComplianceDashboard() {
         {/* Oct 26 feedback, item 6: how people update the Dashboard. */}
         {!loading && !loadError && filtered.length > 0 && (
           <p className="px-5 py-2 text-xs text-text-secondary dark:text-slate-300 border-b border-border-default dark:border-border-dark">
-            Hover over or click a regulation&rsquo;s name for its details and every Business Unit&rsquo;s status. To
+            Hover over or click a regulation&rsquo;s name for its details and every Business Unit&rsquo;s status, or select AI beside it for an AI summary. To
             update a unit, click it in the Status column: your units are underlined and marked with a pencil. Hover
             over shortened text to read all of it. The table scrolls sideways for more columns.
           </p>
@@ -690,7 +703,7 @@ export default function ComplianceDashboard() {
                     const updated = formatTimestamp(entry.updatedAt) || formatTimestamp(reg.lastUpdated);
                     return (
                       <tr key={reg.rowKey} className="border-t border-border-default dark:border-border-dark">
-                        <RegulationCell reg={reg} isOpen={open?.id === reg.id} onHover={hoverOpen} onLeave={hoverLeave} onToggle={toggleOpen} onClose={closePopover} />
+                        <RegulationCell reg={reg} isOpen={open?.id === reg.id} onHover={hoverOpen} onLeave={hoverLeave} onToggle={toggleOpen} onClose={closePopover} onSummary={openSummary} />
                         <td className={`${CELL} whitespace-nowrap`}>
                           {unitName}
                           {buLabelByCode[reg.rowBu] && (
@@ -720,7 +733,7 @@ export default function ComplianceDashboard() {
 
                   return (
                     <tr key={reg.id} className="border-t border-border-default dark:border-border-dark">
-                      <RegulationCell reg={reg} isOpen={open?.id === reg.id} onHover={hoverOpen} onLeave={hoverLeave} onToggle={toggleOpen} onClose={closePopover} />
+                      <RegulationCell reg={reg} isOpen={open?.id === reg.id} onHover={hoverOpen} onLeave={hoverLeave} onToggle={toggleOpen} onClose={closePopover} onSummary={openSummary} />
                       {dueCell}
                       <TextCell value={reg.domain} />
                       <CountryCell country={reg.country} />
@@ -782,6 +795,8 @@ export default function ComplianceDashboard() {
           </RegulationPopover>,
           document.body
         )}
+
+      {summaryFor && <AiSummaryDialog regulation={summaryFor} onClose={() => setSummaryFor(null)} />}
 
       {dialogReg && (
         <UnitStatusDialog
