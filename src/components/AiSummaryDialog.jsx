@@ -10,6 +10,7 @@
  *    and status name, with the unit's contacts), Actions needed;
  *  - an "AI-generated" tag and the time it was generated;
  *  - Close and Copy (Copy takes the full summary plus the disclaimer);
+ *  - Generate Slides (second drop): the summary as a .pptx, built in the browser;
  *  - the disclaimer in fine print at the bottom.
  * Generate Slides comes in the second drop (by Nov 30).
  *
@@ -62,6 +63,7 @@ export default function AiSummaryDialog({ regulation, onClose }) {
   const [error, setError] = useState(null);
   const [expanded, setExpanded] = useState(false);
   const [copyNote, setCopyNote] = useState('');
+  const [slidesBusy, setSlidesBusy] = useState(false);
 
   // Same open/close/focus-return behaviour as the other panels (T015 F6).
   useEffect(() => {
@@ -96,6 +98,23 @@ export default function AiSummaryDialog({ regulation, onClose }) {
       setCopyNote('Copied the full summary, with the disclaimer.');
     } catch {
       setCopyNote('Copy didn’t work here. Open More, select the text and copy it instead.');
+    }
+  };
+
+  // Generate Slides (second drop): built in the browser from this summary, no AI call.
+  // pptxgenjs is loaded only on the first click.
+  const slides = async () => {
+    if (!(summary) || slidesBusy) return;
+    setSlidesBusy(true);
+    setCopyNote('');
+    try {
+      const { buildRegulationDeck, downloadDeck } = await import('../utils/summarySlides');
+      await downloadDeck(buildRegulationDeck(summary, regulation));
+      setCopyNote('Slides downloaded (.pptx). They open in PowerPoint and Google Slides.');
+    } catch {
+      setCopyNote('The slides could not be made. Please try again.');
+    } finally {
+      setSlidesBusy(false);
     }
   };
 
@@ -218,6 +237,14 @@ export default function AiSummaryDialog({ regulation, onClose }) {
               className="bg-brand-teal text-white rounded-md px-4 py-2 text-body font-medium aria-disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal focus-visible:ring-offset-2 dark:focus-visible:ring-offset-surface-card-dark"
             >
               Copy
+            </button>
+            <button
+              type="button"
+              onClick={slides}
+              aria-disabled={!(summary) || slidesBusy}
+              className="rounded-md px-4 py-2 text-body font-medium border border-brand-teal text-brand-teal dark:text-teal-300 dark:border-teal-300 aria-disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal"
+            >
+              {slidesBusy ? 'Generating…' : 'Generate Slides'}
             </button>
             <button
               type="button"

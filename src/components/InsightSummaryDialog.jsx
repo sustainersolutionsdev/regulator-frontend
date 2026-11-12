@@ -9,6 +9,8 @@
  *    regulation and Business Unit - red (Action needed) in full with the
  *    unit's contacts, Pending in 2 lines, Compliant / Not set in 1 line;
  *  - anything past about 2 pages is named by title, never dropped silently;
+ *  - Generate Slides (second drop): the summary as a .pptx, built in the browser
+ *    (only for AI-generated summaries; an empty group has nothing to present);
  *  - AI-generated tag, time generated, Copy (with the disclaimer), Close,
  *    disclaimer in fine print.
  * Status colours, names, dates and contacts come from the data, never from
@@ -42,6 +44,7 @@ export default function InsightSummaryDialog({ group, groupLabel, filters, viewL
   const [error, setError] = useState(null);
   const [expanded, setExpanded] = useState(false);
   const [copyNote, setCopyNote] = useState('');
+  const [slidesBusy, setSlidesBusy] = useState(false);
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -77,6 +80,23 @@ export default function InsightSummaryDialog({ group, groupLabel, filters, viewL
       setCopyNote(summary.aiGenerated ? 'Copied the full summary, with the disclaimer.' : 'Copied.');
     } catch {
       setCopyNote('Copy didn’t work here. Open More, select the text and copy it instead.');
+    }
+  };
+
+  // Generate Slides (second drop): built in the browser from this summary, no AI call.
+  // pptxgenjs is loaded only on the first click.
+  const slides = async () => {
+    if (!(summary?.aiGenerated) || slidesBusy) return;
+    setSlidesBusy(true);
+    setCopyNote('');
+    try {
+      const { buildInsightDeck, downloadDeck } = await import('../utils/summarySlides');
+      await downloadDeck(buildInsightDeck(summary, groupLabel, viewLabel));
+      setCopyNote('Slides downloaded (.pptx). They open in PowerPoint and Google Slides.');
+    } catch {
+      setCopyNote('The slides could not be made. Please try again.');
+    } finally {
+      setSlidesBusy(false);
     }
   };
 
@@ -211,6 +231,14 @@ export default function InsightSummaryDialog({ group, groupLabel, filters, viewL
               className="bg-brand-teal text-white rounded-md px-4 py-2 text-body font-medium aria-disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal focus-visible:ring-offset-2 dark:focus-visible:ring-offset-surface-card-dark"
             >
               Copy
+            </button>
+            <button
+              type="button"
+              onClick={slides}
+              aria-disabled={!(summary?.aiGenerated) || slidesBusy}
+              className="rounded-md px-4 py-2 text-body font-medium border border-brand-teal text-brand-teal dark:text-teal-300 dark:border-teal-300 aria-disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal"
+            >
+              {slidesBusy ? 'Generating…' : 'Generate Slides'}
             </button>
             <button
               type="button"
