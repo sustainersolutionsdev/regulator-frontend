@@ -11,6 +11,11 @@
  *  - With a Business Unit filter, only the selected units count.
  *  - The time range filters by due date (DL-18 point 2).
  * Blank Domain / Country / Region is shown as "Not specified".
+ *
+ * T077 adds two status views, counted the same way (once per Business Unit):
+ *  - byQuarter: statuses by the due date's quarter ("No due date" last);
+ *  - byUnitStatus: one row per Business Unit with its count per status.
+ * The server counts the same numbers for the AI notes (core/chart_notes.py).
  */
 import { STATUS_VALUES } from '../constants/status';
 import { NOT_SET, applyFilters, unitStatusKey } from './regulationFilters';
@@ -48,12 +53,29 @@ export function buildInsights(regulations, businessUnits, filters) {
 
   const statusCounts = Object.fromEntries(STATUS_ORDER.map((k) => [k, 0]));
   const unitCodes = [];
+  const quarters = new Map();
+  const grid = new Map();
+  const emptyCounts = () => Object.fromEntries(STATUS_ORDER.map((k) => [k, 0]));
   for (const reg of scoped) {
+    const quarter = quarterOf(reg.dueDate);
     for (const bu of unitsInScope(reg, filters.bu)) {
-      statusCounts[unitStatusKey(reg, bu)] += 1;
+      const key = unitStatusKey(reg, bu);
+      const name = labelByCode[bu] || bu;
+      statusCounts[key] += 1;
       unitCodes.push(bu);
+      if (!quarters.has(quarter)) quarters.set(quarter, emptyCounts());
+      quarters.get(quarter)[key] += 1;
+      if (!grid.has(name)) grid.set(name, emptyCounts());
+      grid.get(name)[key] += 1;
     }
   }
+  const total = (counts) => Object.values(counts).reduce((a, b) => a + b, 0);
+  const byQuarter = [...quarters.entries()]
+    .sort(([a], [b]) => (a === NO_DUE_DATE) - (b === NO_DUE_DATE) || a.localeCompare(b))
+    .map(([key, counts]) => ({ key, label: quarterLabel(key), counts, total: total(counts) }));
+  const byUnitStatus = [...grid.entries()]
+    .map(([label, counts]) => ({ label, counts, total: total(counts) }))
+    .sort((a, b) => b.total - a.total || a.label.localeCompare(b.label));
   const unitStatuses = Object.values(statusCounts).reduce((a, b) => a + b, 0);
 
   const byDomain = tally(scoped.map((r) => field(r, 'domain')));
@@ -73,7 +95,23 @@ export function buildInsights(regulations, businessUnits, filters) {
     byRegion,
     byCountry,
     byUnit,
+    byQuarter,
+    byUnitStatus,
   };
+}
+
+export const NO_DUE_DATE = 'No due date';
+
+/** '2026-10-21' -> '2026 Q4' (sorts by time; same key as the server); no date -> 'No due date'. */
+export function quarterOf(due) {
+  const m = /^(\d{4})-(\d{2})/.exec(String(due ?? '').trim());
+  return m ? `${m[1]} Q${Math.floor((Number(m[2]) - 1) / 3) + 1}` : NO_DUE_DATE;
+}
+
+/** '2026 Q4' -> 'Q4 2026' for display. */
+export function quarterLabel(key) {
+  const m = /^(\d{4}) (Q\d)$/.exec(key);
+  return m ? `${m[2]} ${m[1]}` : key;
 }
 
 /** At most `max` slices: the largest, then "Other" for the rest (pies stay readable). */
