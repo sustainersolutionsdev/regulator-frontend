@@ -35,3 +35,19 @@ export function fetchInsightSummary(idToken, group, filters) {
     body: { group, filters: { q, domain, bu, country, region, dueFrom, dueTo, docs } },
   });
 }
+
+/**
+ * fetchChartNotes - T076. A 2-line AI note for each Insights chart, for the
+ * page's filters; one AI call covers every chart, written from the chart
+ * numbers only. The server applies the filters itself. The same view comes
+ * back at once (saved) until a number in it changes.
+ * Returns { aiGenerated, notes: { domain, region, country, bu, quarter, grid }, generatedAt, ... }.
+ */
+export function fetchChartNotes(idToken, filters) {
+  const { q, domain, bu, country, region, dueFrom, dueTo, docs } = filters;
+  return apiRequest('/insights/chart-notes', {
+    method: 'POST',
+    idToken,
+    body: { filters: { q, domain, bu, country, region, dueFrom, dueTo, docs } },
+  });
+}

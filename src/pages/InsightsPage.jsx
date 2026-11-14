@@ -16,6 +16,12 @@
  *  - Compliance Overview: one row per status with its count, a link to the
  *    same units on the Dashboard, and (T031) "View summary": the AI summary
  *    of that row, or of the whole view on the "All" row (FR-4.5, FR-4.6).
+ *  - T077: two more charts - due dates by quarter by status, and a Business
+ *    Unit x status grid (Mahesh's call, Nov 10).
+ *  - T076: "Add AI notes to the charts" - a 2-line AI note under each chart,
+ *    written from the chart numbers by POST /insights/chart-notes (one AI
+ *    call for all charts, saved per view). Off until the user turns it on;
+ *    the choice is remembered in this browser.
  *  - The AI disclaimer in fine print at the bottom of the page (DL-19).
  *
  * The counts and charts are worked out in the browser from the regulations
@@ -28,11 +34,13 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { fetchRegulations, RegulationApiError } from '../api/regulationsApi';
 import { fetchBusinessUnits } from '../api/businessUnitsApi';
+import { ApiError } from '../api/apiClient';
+import { fetchChartNotes } from '../api/aiApi';
 import ErrorBanner from '../components/ErrorBanner';
 import RegulationFilterBar from '../components/RegulationFilterBar';
 import StatusSwatch from '../components/StatusSwatch';
 import InsightSummaryDialog from '../components/InsightSummaryDialog';
-import { BarChart, PieChart } from '../components/InsightsCharts';
+import { BarChart, PieChart, QuarterStatusChart, UnitStatusGrid } from '../components/InsightsCharts';
 import { statusLabel } from '../constants/status';
 import {
   businessUnitOptions,
@@ -52,6 +60,24 @@ const FILTER_KEYS = ['q', 'status', 'domain', 'bu', 'country', 'region', 'dueFro
 
 function hasAnyFilterParam(params) {
   return FILTER_KEYS.some((k) => params.has(k));
+}
+
+const NOTES_PREF = 'regulator.insights.aiNotes';
+
+function readNotesPref() {
+  try {
+    return window.localStorage.getItem(NOTES_PREF) === 'on';
+  } catch {
+    return false;
+  }
+}
+
+function writeNotesPref(on) {
+  try {
+    window.localStorage.setItem(NOTES_PREF, on ? 'on' : 'off');
+  } catch {
+    /* storage unavailable: the choice lasts for this visit only */
+  }
 }
 
 function statusName(key) {
@@ -74,6 +100,8 @@ export default function InsightsPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
   const [summaryGroup, setSummaryGroup] = useState(null); // T031: the row whose AI summary is open
+  const [notesOn, setNotesOn] = useState(readNotesPref); // T076
+  const [notesResult, setNotesResult] = useState(null); // { key, notes, error } for one view
 
   const [searchParams, setSearchParams] = useSearchParams();
   const filters = useMemo(() => ({ ...filtersFromSearchParams(searchParams), status: [] }), [searchParams]);
@@ -132,6 +160,50 @@ export default function InsightsPage() {
 
   const groupOf = (key) => (key === NOT_SET ? 'not_set' : key);
 
+  // T076: AI notes for the charts in this view. Fetched shortly after the
+  // filters settle; state is only set inside the callbacks.
+  const notesKey = useMemo(() => {
+    const { q, domain, bu, country, region, dueFrom, dueTo, docs } = filters;
+    return JSON.stringify({ q, domain, bu, country, region, dueFrom, dueTo, docs });
+  }, [filters]);
+  const hasRegulations = model.total > 0;
+  const notesReady = notesResult && notesResult.key === notesKey;
+  useEffect(() => {
+    if (!notesOn || !idToken || !hasRegulations || notesReady) return undefined;
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      fetchChartNotes(idToken, filters)
+        .then((res) => {
+          if (!cancelled) setNotesResult({ key: notesKey, notes: res.aiGenerated ? res.notes || {} : {}, error: null });
+        })
+        .catch((err) => {
+          if (!cancelled) {
+            setNotesResult({
+              key: notesKey,
+              notes: {},
+              error: err instanceof ApiError ? err.message : 'The AI notes could not be loaded. Please try again.',
+            });
+          }
+        });
+    }, 600);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [notesOn, idToken, hasRegulations, notesReady, notesKey, filters]);
+
+  const noteFor = (chart) => {
+    if (!notesOn) return undefined;
+    if (!notesReady) return { loading: true };
+    return { text: notesResult.notes[chart] };
+  };
+  const toggleNotes = () => {
+    const next = !notesOn;
+    setNotesOn(next);
+    writeNotesPref(next);
+    if (next && notesResult?.error) setNotesResult(null); // try again
+  };
+
   const dashboardLink = (statusKey) => {
     const params = writeFiltersToSearchParams({ ...filters, status: [statusKey] }, new URLSearchParams());
     params.set('view', 'bu');
@@ -188,16 +260,37 @@ export default function InsightsPage() {
             </p>
           </section>
 
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-body font-semibold text-text-primary dark:text-white">Charts</h2>
+            <div className="flex items-center gap-3">
+              <span className="hidden sm:inline text-xs text-text-secondary dark:text-slate-400">
+                Two-line notes written by AI from the numbers in each chart.
+              </span>
+              <button
+                type="button"
+                onClick={toggleNotes}
+                aria-pressed={notesOn}
+                className="rounded-md px-3 py-1.5 text-body font-medium border border-brand-teal text-brand-teal dark:text-teal-300 dark:border-teal-300 aria-pressed:bg-brand-teal aria-pressed:text-white dark:aria-pressed:bg-teal-700 dark:aria-pressed:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal"
+              >
+                {notesOn ? 'Hide AI notes' : 'Add AI notes to the charts'}
+              </button>
+            </div>
+          </div>
+          {notesOn && notesReady && notesResult.error && <ErrorBanner message={notesResult.error} />}
+
           <div className="grid gap-4 md:grid-cols-2">
-            <PieChart title="Regulations by domain" rows={model.byDomain} total={model.total} />
-            <PieChart title="Regulations by region" rows={model.byRegion} total={model.total} />
-            <BarChart title="Regulations by country" rows={model.byCountry} total={model.total} />
+            <PieChart title="Regulations by domain" rows={model.byDomain} total={model.total} note={noteFor('domain')} />
+            <PieChart title="Regulations by region" rows={model.byRegion} total={model.total} note={noteFor('region')} />
+            <BarChart title="Regulations by country" rows={model.byCountry} total={model.total} note={noteFor('country')} />
             <BarChart
               title="Regulations by Business Unit"
               rows={model.byUnit}
               total={model.unitStatuses}
               unitNote="A regulation shared by several Business Units is counted under each of them."
+              note={noteFor('bu')}
             />
+            <QuarterStatusChart title="Due dates by quarter, by status" rows={model.byQuarter} note={noteFor('quarter')} />
+            <UnitStatusGrid title="Business Unit by status" rows={model.byUnitStatus} note={noteFor('grid')} />
           </div>
 
           <section className="bg-surface-card dark:bg-surface-card-dark border border-border-default dark:border-border-dark rounded-lg">
@@ -279,7 +372,7 @@ export default function InsightsPage() {
           group={summaryGroup}
           groupLabel={summaryGroup === 'all' ? 'Everything in view' : statusName(summaryGroup === 'not_set' ? NOT_SET : summaryGroup)}
           filters={filters}
-          viewLabel={`due dates ${range}${countActiveFilters({ ...filters, dueFrom: '', dueTo: '' }) > 0 ? ', with filters' : ''}`}
+          viewLabel={`due dates ${range}${filtered ? ', with filters' : ''}`}
           onClose={() => setSummaryGroup(null)}
         />
       )}
