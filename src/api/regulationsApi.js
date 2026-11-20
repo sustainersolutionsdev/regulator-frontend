@@ -10,6 +10,13 @@ import { apiRequest, ApiError, BASE_URL, authHeader } from './apiClient';
 
 export const RegulationApiError = ApiError;
 
+/**
+ * createRegulation. T034 (FR-5.1): confirmedNotDuplicateOf holds the ids of
+ * existing regulations the SME confirmed are different ("Save as a new
+ * regulation"). Without it, a clear match (same citation or same title /
+ * abbreviated name) is refused with 409 { code: "possible_duplicate",
+ * likelyDuplicates } - see isPossibleDuplicate().
+ */
 export function createRegulation(idToken, {
   title,
   abbreviatedTitle,
@@ -21,6 +28,7 @@ export function createRegulation(idToken, {
   notes,
   documents,
   addToRoadmapDashboard,
+  confirmedNotDuplicateOf = [],
 }) {
   return apiRequest('/regulations', {
     method: 'POST',
@@ -36,8 +44,14 @@ export function createRegulation(idToken, {
       notes,
       documents,
       add_to_roadmap_dashboard: addToRoadmapDashboard,
+      confirmed_not_duplicate_of: confirmedNotDuplicateOf,
     },
   });
+}
+
+/** T034: the save was stopped by the duplicate check; err.detail.likelyDuplicates lists the matches. */
+export function isPossibleDuplicate(err) {
+  return err instanceof ApiError && err.status === 409 && err.detail?.code === 'possible_duplicate';
 }
 
 // Multipart calls bypass apiRequest() deliberately: apiRequest always

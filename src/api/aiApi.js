@@ -51,3 +51,38 @@ export function fetchChartNotes(idToken, filters) {
     body: { filters: { q, domain, bu, country, region, dueFrom, dueTo, docs } },
   });
 }
+
+/**
+ * checkDuplicates - T034 (FR-5.1). Called when the SME clicks Save on Add
+ * Regulation, before the regulation is created. Admin/SME only. Returns
+ * { likelyDuplicates, related, needsConfirmation, otherBusinessUnit,
+ *   aiChecked, aiUnavailable, note }. The AI is asked only when a similar
+ * regulation exists, so most saves cost nothing.
+ */
+export function checkDuplicates(idToken, entry) {
+  return apiRequest('/regulations/check-duplicates', {
+    method: 'POST',
+    idToken,
+    body: {
+      title: entry.title,
+      abbreviated_title: entry.abbreviatedTitle,
+      due_date: entry.dueDate,
+      domain: entry.domain,
+      country: entry.country,
+      region: entry.region,
+      notes: entry.notes,
+      business_unit_ids: entry.businessUnitIds,
+    },
+  });
+}
+
+/**
+ * suggestFields - T035 (FR-5.2). The pasted regulation text -> suggestions
+ * for Domain, Country, Region and Business Units, each { value, reason,
+ * confidence } or { value: null, notSure }. Nothing is saved; the text is
+ * not stored. 400 when the text is too short; aiAvailable false (with a
+ * message) when the AI can't help.
+ */
+export function suggestFields(idToken, text) {
+  return apiRequest('/regulations/suggest-fields', { method: 'POST', idToken, body: { text } });
+}
