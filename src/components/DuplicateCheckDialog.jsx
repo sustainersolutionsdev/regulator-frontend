@@ -65,8 +65,10 @@ export default function DuplicateCheckDialog({ result, unitNames, onSaveAnyway, 
         <header className="px-5 py-4 border-b border-border-default dark:border-border-dark">
           <h2 id={titleId} className="text-h3 text-brand-navy dark:text-white">This may already be in Regulator</h2>
           <p className="mt-1 text-body text-text-secondary dark:text-slate-300">
-            {matches.length === 1 ? 'A regulation your company already has' : 'Regulations your company already has'} looks
-            like the one you are adding. Check before saving, so the same regulation isn&rsquo;t tracked twice.
+            {matches.length === 1
+              ? 'A regulation your company already has looks like the one you are adding.'
+              : 'Regulations your company already has look like the one you are adding.'}{' '}
+            Check before saving, so the same regulation isn&rsquo;t tracked twice.
           </p>
         </header>
 
